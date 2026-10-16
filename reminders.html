@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0b14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>リマインダー</title>
+<!--
+  リマインダーの一覧（2026-09-19）。
+  中身は reminder_app.py（claude/data/reminders.db）。AI が道具で足し、日時になるとディスコードで知らせる。
+  ここでは、見る・丸を押して済ませる・押して直す・消す・下から足す、ができる。
+-->
+<style>
+  :root {
+    --bg: #0d0b14; --card: rgba(255,255,255,0.045); --line: rgba(255,255,255,0.09);
+    --text: #ece8f4; --muted: #9a93ad; --accent: #b8a0d8; --accent-2: #f0a8c8; --late: #f08a8a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  body { padding: env(safe-area-inset-top) 0 calc(88px + env(safe-area-inset-bottom)); }
+  header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px 10px; background: var(--bg); border-bottom: 1px solid var(--line); }
+  header a { color: var(--accent); text-decoration: none; font-size: 15px; }
+  header h1 { margin: 0; font-size: 22px; font-weight: 700; flex: 1; }
+  .count { color: var(--muted); font-size: 13px; }
+  section { margin: 18px 12px 0; }
+  section h2 { margin: 0 6px 8px; font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: .04em; }
+  .list { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--line); }
+  .row:first-child { border-top: none; }
+  /* 丸は見た目24px・押せる広さは40px（手引き：タップ領域は40px以上） */
+  .check { flex: none; position: relative; width: 40px; height: 40px; margin: -8px -4px -8px -8px;
+    border: none; background: none; padding: 0; cursor: pointer; }
+  .check::before { content: ''; position: absolute; inset: 8px; border-radius: 50%; border: 2px solid var(--muted); }
+  .row.done .check::before { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 45%, transparent 50%); }
+  .body { flex: 1; min-width: 0; cursor: pointer; }
+  .title { font-size: 16px; line-height: 1.45; word-break: break-word; }
+  .row.done .title { color: var(--muted); text-decoration: line-through; }
+  .meta { margin-top: 3px; font-size: 12.5px; color: var(--muted); }
+  .meta .when { color: var(--accent); }
+  .meta .when.late { color: var(--late); }
+  .notes { margin-top: 3px; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+  .to-iphone { display: inline-flex; align-items: center; min-height: 40px; margin-top: 4px; padding: 0 14px;
+    border-radius: 999px; font-size: 13px; font-weight: 600; text-decoration: none; color: #1a1526;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  .empty { padding: 16px; color: var(--muted); font-size: 14px; text-align: center; }
+  .edit { display: grid; gap: 8px; margin-top: 8px; }
+  input[type=text], input[type=datetime-local] { width: 100%; font-size: 16px; color: var(--text);
+    background: rgba(255,255,255,0.06); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; }
+  input[type=datetime-local] { color-scheme: dark; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  button.b { font-size: 14px; min-height: 40px; border-radius: 999px; border: 1px solid var(--line); padding: 7px 16px;
+    background: rgba(255,255,255,0.06); color: var(--text); cursor: pointer; }
+  button.b.main { border: none; color: #1a1526; font-weight: 600;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  button.b.del { color: var(--late); }
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+  #add { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: rgba(13,11,20,0.96); border-top: 1px solid var(--line); }
+  #add-open { width: 100%; min-height: 44px; text-align: left; font-size: 16px; color: var(--accent); background: none; border: none; padding: 8px 4px; cursor: pointer; }
+  #add-form { display: none; gap: 8px; }
+  #add.open #add-form { display: grid; }
+  #add.open #add-open { display: none; }
+  #msg { margin: 10px 16px 0; font-size: 13px; color: var(--late); min-height: 0; }
+</style>
+</head>
+<body>
+<header>
+  <a href="/" id="back">‹ 極</a>
+  <h1>リマインダー</h1>
+  <span class="count" id="count"></span>
+</header>
+<div id="msg"></div>
+<section><h2>予定</h2><div class="list" id="list-due"></div></section>
+<section><h2>日時なし</h2><div class="list" id="list-nodue"></div></section>
+<section>
+  <details id="done-box">
+    <summary><h2 id="done-head">完了</h2></summary>
+    <div class="list" id="list-done"></div>
+  </details>
+</section>
+
+<div id="add">
+  <button id="add-open">＋ 新しいリマインダー</button>
+  <div id="add-form">
+    <input type="text" id="add-title" placeholder="用件" maxlength="200">
+    <input type="datetime-local" id="add-due">
+    <div class="btns">
+      <button class="b main" id="add-ok">追加</button>
+      <button class="b" id="add-cancel">やめる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let data = { open: [], done: [], now: '' };
+let editing = null;          // いま直している id
+
+function say(t) { $('msg').textContent = t || ''; }
+
+async function api(path, opt) {
+  try {
+    const r = await fetch('/reminders/api' + path, opt);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { say(d.detail || 'うまくいきませんでした'); return null; }
+    say('');
+    return d;
+  } catch (e) { say('極につながりませんでした'); return null; }
+}
+const post = (path, body, method = 'POST') => api(path, {
+  method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+
+async function load() {
+  const d = await api('');
+  if (d) { data = d; render(); }
+}
+
+function rowEl(r) {
+  const row = document.createElement('div');
+  row.className = 'row' + (r.done ? ' done' : '');
+  row.dataset.id = r.id;
+  const c = document.createElement('button');
+  c.className = 'check';
+  c.setAttribute('aria-label', r.done ? 'まだにもどす' : '済んだ');
+  c.onclick = async () => { await post(`/${r.id}/done`, { done: !r.done }); load(); };
+  const b = document.createElement('div');
+  b.className = 'body';
+  const t = document.createElement('div');
+  t.className = 'title';
+  t.textContent = r.title;
+  const m = document.createElement('div');
+  m.className = 'meta';
+  if (r.label) {
+    const w = document.createElement('span');
+    w.className = 'when' + (!r.done && r.due && data.now && r.due < data.now ? ' late' : '');
+    w.textContent = r.label;
+    m.append(w);
+  }
+  if (r.who) m.append((r.label ? ' · ' : '') + r.who);
+  b.append(t, m);
+  if (r.notes) {
+    const n = document.createElement('div');
+    n.className = 'notes';
+    n.textContent = r.notes;
+    b.append(n);
+  }
+  if (!r.done) {
+    const go = document.createElement('a');
+    go.className = 'to-iphone';
+    go.href = remindHref(r);
+    go.textContent = 'iPhoneのリマインダーに入れる';
+    go.onclick = (ev) => ev.stopPropagation();
+    b.append(go);
+  }
+  if (editing === r.id) b.append(editEl(r));
+  else b.onclick = () => { editing = r.id; render(); };
+  row.append(c, b);
+  return row;
+}
+
+/* iPhone のリマインダーへ（2026-09-19）。公式 Claude アプリに頼む文を入れて開く。index.html の remindHref と同じ形 */
+function remindHref(r) {
+  const y = (r.due || '').slice(0, 4);
+  const when = r.label ? `（${y}年${r.label}）` : '';
+  const text = `iPhoneのリマインダーに登録して：${r.title}${when}` + (r.notes ? `\nメモ：${r.notes}` : '');
+  return 'https://claude.ai/new?q=' + encodeURIComponent(text);
+}
+
+function editEl(r) {
+  const e = document.createElement('div');
+  e.className = 'edit';
+  e.onclick = (ev) => ev.stopPropagation();
+  const ti = document.createElement('input');
+  ti.type = 'text'; ti.value = r.title; ti.maxLength = 200;
+  const du = document.createElement('input');
+  du.type = 'datetime-local'; du.value = r.due ? r.due.replace(' ', 'T') : '';
+  const btns = document.createElement('div');
+  btns.className = 'btns';
+  const ok = Object.assign(document.createElement('button'), { className: 'b main', textContent: '保存' });
+  ok.onclick = async () => {
+    const d = await post(`/${r.id}`, { title: ti.value, due: du.value }, 'PATCH');
+    if (d) { editing = null; load(); }
+  };
+  const cancel = Object.assign(document.createElement('button'), { className: 'b', textContent: 'やめる' });
+  cancel.onclick = () => { editing = null; render(); };
+  const del = Object.assign(document.createElement('button'), { className: 'b del', textContent: '消す' });
+  del.onclick = async () => {
+    if (!confirm('このリマインダーを消しますか？')) return;
+    await api(`/${r.id}`, { method: 'DELETE' });
+    editing = null; load();
+  };
+  btns.append(ok, cancel, del);
+  e.append(ti, du, btns);
+  return e;
+}
+
+function fill(el, items, empty) {
+  el.innerHTML = '';
+  if (!items.length) {
+    el.innerHTML = `<div class="empty">${empty}</div>`;
+    return;
+  }
+  items.forEach(r => el.append(rowEl(r)));
+}
+
+function render() {
+  const due = data.open.filter(r => r.due);
+  const nodue = data.open.filter(r => !r.due);
+  fill($('list-due'), due, '予定はありません');
+  fill($('list-nodue'), nodue, 'ありません');
+  fill($('list-done'), data.done, 'まだありません');
+  $('done-head').textContent = `完了（${data.done.length}）`;
+  $('count').textContent = data.open.length ? `${data.open.length}件` : '';
+}
+
+$('add-open').onclick = () => { $('add').classList.add('open'); $('add-title').focus(); };
+$('add-cancel').onclick = () => { $('add').classList.remove('open'); };
+$('add-ok').onclick = async () => {
+  const title = $('add-title').value.trim();
+  if (!title) { $('add-title').focus(); return; }
+  const d = await post('', { title, due: $('add-due').value, who: '持ち主' });
+  if (d) {
+    $('add-title').value = ''; $('add-due').value = '';
+    $('add').classList.remove('open');
+    load();
+  }
+};
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,2421 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0b14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>老後シミュレーター</title>
+<!--
+  老後シミュレーター（2026-09-28）。自分用だが、家族に貸しても参考になるように作った。
+  クロード極からいつでも開けるように、極の /rougo で配る。
+  計算の正解は docs/rougo_keisan.py（極の道具 rougo_tools.py も同じファイルを読む）。
+  ★この1枚だけで動きます（外の部品・fetch なし）。極（8030）の /rougo で配り、ファイルをダブルクリックしても開けます。
+  ★保存はこの端末の localStorage（キー rougo:v1）。iPhone とパソコンの行き来は「書き出す」「読み込む」で。
+  ★計算は window.ROUGO（画面の部品に触らない関数だけ）。確かめの道具 tools/verify/verify_rougo.py が正解とくらべます。
+-->
+<style>
+  :root {
+    --bg: #0d0b14; --card: rgba(255,255,255,0.045); --line: rgba(255,255,255,0.09);
+    --text: #ece8f4; --muted: #9a93ad; --accent: #b8a0d8; --accent-2: #f0a8c8; --late: #f08a8a; --good: #8fd6b0;
+    --in: rgba(255,255,255,0.06);
+    /* グラフの2本（手引きの暗い面用の色・色の見分けにくい方でも区別できる組を測って選んだ） */
+    --s1: #9085e9; --s2: #d55181;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  /* 字は極と同じ丸ゴシック（外から字を読みに行かない＝1枚もののまま。iPhone はヒラギノ丸ゴ） */
+  html, body { margin: 0; background: var(--bg); color: var(--text); -webkit-text-size-adjust: 100%;
+    font-family: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  button, input, select { font-family: inherit; }
+  body { padding: 0 0 calc(28px + env(safe-area-inset-bottom)); overflow-x: hidden; overflow-anchor: none; }
+  /* 素早く2回押しても拡大しない（iPhone） */
+  button, summary, label, select, input[type=range], .chip, .tab { touch-action: manipulation; }
+  header { position: sticky; top: 0; z-index: 5; padding: calc(8px + env(safe-area-inset-top)) 14px 8px;
+    background: var(--bg); border-bottom: 1px solid var(--line); }
+  .hrow { display: flex; align-items: center; gap: 10px; }
+  header a { color: var(--accent); text-decoration: none; font-size: 15px; min-height: 40px; min-width: 44px;
+    display: inline-flex; align-items: center; padding-right: 6px; }
+  header h1 { margin: 0; font-size: 19px; font-weight: 700; flex: 1; }
+  /* 結果の枠が画面の外に出たときの短い帯。ヘッダーの下に重ねて出す（ヘッダーの高さを変えると、下の欄が押し出されて飛ぶため） */
+  /* 投資信託ランキングから来たときの帯（#sagaru=…）。結果の枠のすぐ上 */
+  #from-toushin { border: 1px solid var(--accent); border-radius: 14px; padding: 12px 14px; background: rgba(184,160,216,0.10);
+    display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; font-size: 14px; line-height: 1.6; }
+  #from-toushin[hidden] { display: none; }
+  #from-toushin .msg { flex: 1 1 220px; min-width: 0; }
+  #from-toushin button { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--in); color: var(--text); font-size: 14px; cursor: pointer; }
+  #mini { display: none; position: absolute; left: 0; right: 0; top: 100%; font-size: 13px; line-height: 1.5; color: var(--muted);
+    padding: 5px 14px 7px; background: rgba(13,11,20,0.97); border-bottom: 1px solid var(--line); pointer-events: none; }
+  #mini.on { display: block; }
+  #mini b { color: var(--text); font-weight: 600; }
+  #people { display: flex; gap: 6px; overflow-x: auto; padding: 10px 12px 0; scrollbar-width: none;
+    overscroll-behavior-x: none; }
+  #people::-webkit-scrollbar { display: none; }
+  .tab { flex: none; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--in); color: var(--text); font-size: 15px; cursor: pointer; }
+  .tab.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #1a1526; border-color: transparent; font-weight: 700; }
+  .tab.add { color: var(--accent); min-width: 44px; padding: 0 12px; }
+  #wrap { display: grid; gap: 12px; padding: 12px; max-width: 1200px; margin: 0 auto; }
+  #col-out, #col-in { display: grid; gap: 12px; min-width: 0; align-content: start; }
+  @media (min-width: 900px) {
+    #wrap { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); align-items: start; }
+    #col-in { order: 1; }
+    #col-out { order: 2; position: sticky; top: 64px; max-height: calc(100vh - 76px); overflow-y: auto; overscroll-behavior: contain; }
+  }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; min-width: 0; }
+  h2 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: .04em; }
+
+  /* ── 結果 ── */
+  #r-main { font-size: 23px; font-weight: 700; line-height: 1.4; }
+  #r-main.bad { color: #f5b3b3; }
+  #r-main.ok { color: var(--good); }
+  #r-main.ask { color: var(--accent); font-size: 18px; }
+  .r-line { margin-top: 6px; font-size: 15px; line-height: 1.55; }
+  .r-line .dim { color: var(--muted); font-size: 13.5px; }
+  .r-sub { margin-top: 4px; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+  #r-warn { margin-top: 8px; display: grid; gap: 4px; }
+  /* 「空なので0円で計算しています」は、答えの前提なので、たたまずに出す */
+  #r-kara { margin-top: 6px; display: grid; gap: 4px; }
+  #r-kara:empty { display: none; }
+  .warn { font-size: 13px; line-height: 1.5; color: #f3c78a; }
+  /* 計算の前提の知らせ（空の欄を0円とした・年が決まっていない出費）。注意の色だと「私なにか間違えた？」と読めるので淡い字（2026-10-14 UX レビュー） */
+  .soft { font-size: 13px; line-height: 1.5; color: var(--muted); }
+  /* 押しくらべ：切り替わる年齢を選ぶボタンと、境目の1文（2026-10-14 UX レビュー「一緒に住む家族が何歳ならいいの？」） */
+  #r-choose { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+  #r-choose:empty { display: none; }
+  #r-choose .sk { font-size: 14.5px; line-height: 1.55; margin-bottom: 8px; }
+  #r-choose .chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .chip.kchip { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; padding: 5px 4px; line-height: 1.3;
+    min-height: 48px; min-width: 0; border-radius: 14px; }
+  .kchip .c1 { font-size: 13.5px; white-space: nowrap; }
+  .kchip .c2 { font-size: 12px; color: var(--muted); }
+  .kchip.ok .c2 { color: var(--good); }
+  .kchip.bad .c2 { color: #f5b3b3; }
+  .chip.kchip.on .c2 { color: #1a1526; }
+  details.kuwashiku { margin-top: 4px; }
+  details.kuwashiku > summary { font-size: 13.5px; color: var(--accent); cursor: pointer; min-height: 40px; display: flex; align-items: center; gap: 6px; }
+  details.kuwashiku > summary::before { content: '▸'; font-size: 12px; transition: transform .15s; }
+  details.kuwashiku[open] > summary::before { transform: rotate(90deg); }
+  #r-shiki { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12.5px;
+    color: var(--muted); line-height: 1.6; word-break: break-word; }
+  #r-shiki:empty { display: none; }
+  /* 知らせと年金の内訳は1行にたたむ（結果の枠を短くして、すぐ下の入力の欄を近づける） */
+  #r-more { margin-top: 8px; border-top: 1px solid var(--line); }
+  #r-more .sumrow .t { font-size: 13.5px; font-weight: 600; color: var(--muted); }
+  #r-more.has-warn .sumrow .t { color: #f3c78a; }
+  #r-more #r-shiki { border-top: none; margin-top: 4px; padding-top: 0; }
+
+  /* ── グラフ ── */
+  #chart { position: relative; width: 100%; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+  #chart svg { display: block; width: 100%; overflow: visible; }
+  #chart .ax { font-size: 11px; fill: var(--muted); }
+  #chart .lbl { font-size: 11.5px; fill: var(--text); }
+  #tip { position: absolute; pointer-events: none; z-index: 2; min-width: 150px; max-width: 230px; padding: 8px 10px;
+    border-radius: 10px; background: rgba(28,24,40,0.97); border: 1px solid var(--line); font-size: 12.5px; line-height: 1.55;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35); display: none; }
+  #tip b { font-weight: 600; }
+  .sw { display: inline-block; width: 10px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+  #legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+  #legend:empty { display: none; }
+  #chart-empty { font-size: 14px; color: var(--muted); padding: 18px 4px; text-align: center; }
+
+  /* ── 表 ── */
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+  .sumrow { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+  .sumrow::before { content: '▸'; color: var(--muted); font-size: 12px; width: 12px; transition: transform .15s; }
+  details[open] > summary .sumrow::before { transform: rotate(90deg); }
+  .sumrow .t { font-size: 15px; font-weight: 600; flex: 1; }
+  .sumrow .note { font-size: 12.5px; color: var(--muted); text-align: right; max-width: 55%; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  #table-wrap { margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 5px 4px; text-align: right; border-top: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; font-size: 11.5px; }
+  /* 年ごとの表の見出しは、ヘッダー（と短い帯）の下に貼りつける。--stick は JS が測って入れる。
+     表を横に動かせる箱に入れると貼りつかないので、入りきらない幅（360px 未満）だけ横に動かす */
+  #table-wrap th { position: sticky; top: var(--stick, 57px); z-index: 1; background: #18161f; }
+  @media (max-width: 359px) {
+    #table-wrap { overflow-x: auto; overscroll-behavior-x: none; }
+    #table-wrap th { position: static; }
+  }
+  @media (min-width: 900px) { #table-wrap th { top: 0; } }
+  td:first-child, th:first-child { text-align: left; }
+  tr.tame td:first-child { color: var(--accent); }
+  td.neg { color: var(--late); }
+  .cap { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
+  /* ── ほぉほぉ ── */
+  #hoho { display: grid; gap: 10px; }
+  .hoho-item { padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,0.035); border: 1px solid var(--line); }
+  .hoho-item[hidden] { display: none; }
+  .h-t { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .h-b { font-size: 14.5px; line-height: 1.6; word-break: break-word; }
+  .h-b .arrow { color: var(--accent); }
+  .h-b table { margin-top: 4px; }
+  .h-ctl { margin-top: 6px; display: grid; gap: 4px; }
+
+  /* ── 入力 ── */
+  .sec { padding: 4px 14px; }
+  .sec-body { padding: 4px 0 10px; }
+  .f { display: flex; align-items: center; justify-content: space-between; gap: 6px 10px; padding: 5px 0; flex-wrap: wrap; }
+  .f > label, .f > .fl { font-size: 14.5px; flex: 1 1 8em; min-width: 0; }
+  .f .ctl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .f.col { display: block; }
+  .f.col > .fl { display: block; margin-bottom: 2px; }
+  input.n, input.tx, select, textarea { font-size: 16px; color: var(--text); background: var(--in);
+    border: 1px solid var(--line); border-radius: 10px; min-height: 40px; }
+  input.n { width: 7.2em; padding: 7px 9px; text-align: right; font-variant-numeric: tabular-nums; }
+  input.n.s { width: 4.3em; }
+  input.n.m { width: 5.4em; }
+  input.n.xs { width: 3.3em; }
+  input.n.bad { border-color: var(--late); }
+  input.tx { width: 100%; padding: 7px 10px; }
+  select { padding: 6px 8px; max-width: 100%; color-scheme: dark; }
+  textarea { width: 100%; padding: 9px 10px; min-height: 110px; font-family: ui-monospace, Menlo, monospace; font-size: 16px; }
+  .unit { font-size: 13px; color: var(--muted); }
+  .hint { font-size: 12.5px; color: var(--muted); line-height: 1.55; margin: 2px 0 4px; }
+  .hint:empty { display: none; }
+  .hint.warnc { color: #f3c78a; }
+  /* 年金の「これから」の行：選ぶ欄と × は一緒に折り返す（× だけ次の段に落ちない） */
+  .rl .tail { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; max-width: 100%; }
+  .rl .tail select { min-width: 0; flex: 1 1 auto; }   /* 「猶予（50歳からは使えません）」で欄が長くなっても、枠の中で縮む */
+  .pair { display: flex; align-items: center; gap: 8px; width: 100%; }
+  .pair input[type=range] { flex: 1; min-width: 0; height: 40px; margin: 0; accent-color: var(--accent); }
+  .pair.unset input[type=range] { opacity: .35; }
+  .pair .ctl { flex: none; }
+  /* 列は minmax(0, 1fr)＝中の選ぶ欄の長さで枠が広がらない（幅320pxで「○歳から変わる」の行が右へはみ出していた） */
+  .rows { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 4px 0; }
+  .rw { padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,0.035); border: 1px solid var(--line); display: grid;
+    grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .rw-h { display: flex; align-items: center; gap: 6px; }
+  .rw-h input.tx { flex: 1; min-width: 0; }
+  .itemrow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 6px; }
+  .itemrow .ctl { display: flex; align-items: center; gap: 4px; }
+  .itemrow .chk { gap: 4px; font-size: 13px; }
+  .rl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 14px; }
+  .x { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: none;
+    color: var(--muted); font-size: 18px; cursor: pointer; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #1a1526; border-color: transparent; font-weight: 600; }
+  .chip { min-height: 40px; min-width: 44px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--in);
+    color: var(--text); font-size: 13.5px; cursor: pointer; }
+  .chk { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; font-size: 14px; cursor: pointer; }
+  /* チェックの箱は自前で描く（webkit は外れているとき白く光り、暗い地に合わせる指定も効かないため） */
+  .chk input { -webkit-appearance: none; appearance: none; flex: none; width: 20px; height: 20px; margin: 0; border-radius: 5px;
+    border: 2px solid var(--muted); background: transparent; display: inline-grid; place-content: center; cursor: pointer; }
+  .chk input:checked { background: var(--accent); border-color: var(--accent); }
+  .chk input:checked::after { content: ''; width: 9px; height: 5px; border-left: 2px solid #1a1526; border-bottom: 2px solid #1a1526;
+    transform: translateY(-1px) rotate(-45deg); }
+  button.b { font-size: 14px; min-height: 40px; border-radius: 999px; border: 1px solid var(--line); padding: 7px 16px;
+    background: var(--in); color: var(--text); cursor: pointer; }
+  button.b.main { border: none; color: #1a1526; font-weight: 600; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  button.b.del { color: var(--late); }
+  button.b:disabled { opacity: .45; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .total { font-size: 14px; text-align: right; color: var(--muted); padding: 4px 0; }
+  .total b { color: var(--text); }
+  /* 触っている欄のすぐ上に出す、結果の吹き出し（2026-09-28 入力場所が下なのに、出力が変わる場所が上で見づらかったため）。
+     高さは2行で固定（中身が変わっても形を変えない）。スマホの幅だけ（900px 以上は右の列に結果が見えている） */
+  #live { position: absolute; left: 12px; right: 12px; height: 58px; z-index: 4; pointer-events: none; display: none;
+    background: #1c1828; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.35); padding: 7px 12px; }
+  #live.on { display: block; }
+  #live .lv1 { font-size: 16px; font-weight: 700; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #live .lv1.bad { color: #f5b3b3; } #live .lv1.ok { color: var(--good); } #live .lv1.ask { color: var(--accent); }
+  #live .lv2 { font-size: 13px; line-height: 1.4; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @media (min-width: 900px) { #live { display: none !important; } }
+  body.live-on #mini, body.tip-on #mini { display: none !important; }
+  html { scroll-padding-top: 110px; }
+  .nw { white-space: nowrap; }
+  .g { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  input.phw:placeholder-shown + .unit { display: none; }
+  .r-cap { font-size: 12.5px; color: var(--muted); margin-bottom: 2px; }
+  .r-cap:empty { display: none; }
+  #r-need:empty { display: none; }
+  #r-need { margin-top: 8px; padding: 6px 10px 8px; border-radius: 12px; background: rgba(184,160,216,0.08); border: 1px solid rgba(184,160,216,0.25); }
+  details.shiki { margin-top: 4px; }
+  details.shiki > summary { color: var(--accent); min-height: 40px; display: flex; align-items: center; }
+  #hoho-more { margin-top: 2px; }
+  #hoho-more .hoho-list { display: grid; gap: 10px; margin-top: 6px; }
+  .hoho-main { display: grid; gap: 10px; }
+  [hidden] { display: none !important; }
+  /* 切り替え（2026-09-29 自分のことを入力する欄が下の方で、スクロールが多くて使いにくかったため）。
+     結果の枠のすぐ下に置き、はじめは「数字を入れる」＝結果のすぐ下に入力の欄が来る。900px 以上は今までどおり左右2列 */
+  #views { display: flex; gap: 6px; }
+  #views button { flex: 1; min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--in);
+    color: var(--text); font-size: 14.5px; font-weight: 600; cursor: pointer; padding: 0 6px; }
+  #views button small { display: block; font-size: 11px; font-weight: 400; opacity: .8; }
+  #views button[aria-selected="true"] { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #1a1526; border-color: transparent; }
+  @media (max-width: 899px) {
+    body[data-view="in"] #chart-card, body[data-view="in"] #table-box, body[data-view="in"] #hoho-card { display: none !important; }
+    body[data-view="graph"] #col-in, body[data-view="graph"] #hoho-card { display: none !important; }
+    body[data-view="hoho"] #col-in, body[data-view="hoho"] #chart-card, body[data-view="hoho"] #table-box { display: none !important; }
+  }
+  @media (min-width: 900px) { #views { display: none; } }
+  .nisa-kiso { margin: 6px 0 4px; padding: 2px 12px; border-radius: 12px; background: rgba(184,160,216,0.07); border: 1px solid rgba(184,160,216,0.22); }
+  .nisa-kiso .sumrow .t { font-size: 14px; color: var(--accent); }
+  .nisa-kiso ul { margin: 0 0 8px; padding-left: 1.2em; font-size: 13.5px; line-height: 1.65; }
+  .nisa-kiso li + li { margin-top: 4px; }
+  .nisa-kiso b { color: var(--text); font-weight: 600; }
+  #howto { padding: 4px 14px; }
+  #howto ol { margin: 0 0 8px; padding-left: 1.3em; font-size: 13.5px; line-height: 1.6; }
+  #howto li + li { margin-top: 3px; }
+  #howto b { color: var(--accent); font-weight: 600; }
+  #msg { margin: 8px 14px 0; font-size: 13px; color: var(--late); }
+  #msg:empty { display: none; }
+  #io-msg { font-size: 13px; margin-top: 6px; min-height: 1em; }
+  #maeteki ul { margin: 0; padding-left: 1.2em; font-size: 13px; color: var(--muted); line-height: 1.7; }
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <a href="/" id="back">‹ 極</a>
+    <h1>老後シミュレーター</h1>
+  </div>
+  <div id="mini"></div>
+</header>
+<nav id="people" aria-label="人の切り替え"></nav>
+<div id="msg"></div>
+<main id="wrap">
+  <div id="col-out">
+    <div id="from-toushin" hidden role="status"></div>
+    <section class="card" id="result" aria-live="polite">
+      <div class="r-cap" id="r-cap"></div>
+      <div id="r-main"></div>
+      <div class="r-sub" id="r-sub"></div>
+      <div id="r-need"></div>
+      <div class="r-line" id="r-rate"></div>
+      <div class="r-line" id="r-tsuki"></div>
+      <div class="r-line" id="r-ato"></div>
+      <div id="r-choose"></div>
+      <div id="r-kara"></div>
+      <details id="r-more">
+        <summary><div class="sumrow"><span class="t" id="r-more-t">年金の内訳</span></div></summary>
+        <div id="r-warn"></div>
+        <div id="r-shiki"></div>
+      </details>
+    </section>
+    <nav id="views" role="tablist" aria-label="出すものの切り替え">
+      <button type="button" role="tab" data-view="in">数字を入れる</button>
+      <button type="button" role="tab" data-view="graph">グラフ・表</button>
+      <button type="button" role="tab" data-view="hoho">ほぉほぉ<small>もしも</small></button>
+    </nav>
+    <section class="card" id="chart-card">
+      <h2>残高（預金＋NISA）の見通し</h2>
+      <div id="chart"></div>
+      <div id="legend"></div>
+    </section>
+    <details class="card" id="table-box">
+      <summary><div class="sumrow"><span class="t">年ごとの表</span><span class="note" id="table-note"></span></div></summary>
+      <div id="table-wrap"></div>
+    </details>
+    <section class="card" id="hoho-card">
+      <h2>ほぉほぉ（数字を動かすと変わります）</h2>
+      <div class="cap" id="hoho-cap" style="margin:-2px 0 8px">ここの数字は、とくに書いていなければ、NISA が増えない計算です。</div>
+      <div id="hoho"></div>
+    </section>
+  </div>
+  <div id="col-in">
+    <details class="card" id="howto">
+      <summary><div class="sumrow"><span class="t">使い方</span><span class="note">3つだけ</span></div></summary>
+      <ol>
+        <li>上の枠のボタンで<b>一人暮らしになる年齢</b>（見本Bは辞める年齢）を選ぶと、<b>何歳までお金が持つか</b>が出ます。</li>
+        <li>自分の数字に変えたいときは、下の枠の名前を押して開きます。</li>
+        <li>「ほぉほぉ（もしも）」で、「もし○○だったら」を試せます。</li>
+      </ol>
+    </details>
+    <div id="form" style="display:grid;gap:12px"></div>
+    <section class="card" id="io">
+      <h2>プリセット・書き出す・読み込む</h2>
+      <div class="f"><select id="preset-sel" aria-label="プリセット">
+        <option value="mihon_a">見本A（一人暮らしになる人）</option>
+        <option value="mihon_b">見本B（働いている人）</option>
+      </select><button class="b" id="preset-go">このタブに読み込む</button></div>
+      <div class="hint">書き出した文字をコピーして、ほかの端末の「読み込む」に貼ると、同じ数字になります（全員ぶん）。</div>
+      <textarea id="io-text" aria-label="書き出し・読み込み" placeholder="ここに書き出します／ここに貼って読み込みます"></textarea>
+      <div class="btns"><button class="b" id="io-out">書き出す</button><button class="b" id="io-in">読み込む</button></div>
+      <div id="io-msg"></div>
+      <div class="btns" id="io-del" style="margin-top:14px"></div>
+    </section>
+    <section class="card" id="maeteki">
+      <h2>この計算の前提</h2>
+      <ul>
+        <li>直接入れた年金の月額は、一生同じ額で続くものとして計算しています（変わるときは「○歳から変わる」に入れます）。</li>
+        <li>税金と、年金から引かれる保険料は入れていません（障害年金は非課税。繰下げで年金が増えると、税や保険料がかかることがあります）。</li>
+        <li>物価の上がり下がりは入れていません。年金の額も、いまの額のまま続く計算です。</li>
+        <li>利回りは仮の数字です。毎年同じ率で増える計算で、下がる年は「NISA が下がったら」で試せます。</li>
+        <li>NISA の利益は、国保の保険料の計算に入りません。</li>
+        <li>免除や猶予が通るかどうかは、所得の審査で決まります。ここでは通ったものとして計算しています。</li>
+        <li>1年きざみの計算です。「○歳の年」は、その年齢のあいだの1年のことです。</li>
+        <li>制度の数字（満額・率・保険料）は「制度の数字」の枠で変えられます。</li>
+      </ul>
+    </section>
+  </div>
+</main>
+
+<div id="spacer" aria-hidden="true"></div>
+<div id="live" aria-hidden="true"><div class="lv1"></div><div class="lv2"></div></div>
+
+<script>
+'use strict';
+/* ════════════════════════════════════════════════════════════════════
+   計算（画面の部品に触らない）。docs/rougo_keisan.py と同じ順番で足し引きする。
+   ★順番を変えると、小数の端数が変わって正解と1円ずれることがあります。
+   ════════════════════════════════════════════════════════════════════ */
+const SEIDO0 = { mangaku: 70608, rate: 5.481, hoken: 17920, menjo: 0.5 };
+const isNum = v => typeof v === 'number' && isFinite(v);
+const num = v => isNum(v) ? v : 0;
+
+const ROUGO = (() => {
+  function seido(S) {
+    S = S || {};
+    return {
+      mangaku: isNum(S.mangaku) ? S.mangaku : SEIDO0.mangaku,
+      rate: isNum(S.rate) ? S.rate : SEIDO0.rate,
+      hoken: isNum(S.hoken) ? S.hoken : SEIDO0.hoken,
+      menjo: isNum(S.menjo) ? S.menjo : SEIDO0.menjo,
+    };
+  }
+  /* 計算できる年齢の幅 [いまの年齢, 目標の年齢]。空なら null */
+  const ageOf = p => isNum(p.age) ? Math.max(0, Math.min(120, Math.round(p.age))) : 0;
+  function range(p) {
+    if (!isNum(p.age) || !isNum(p.mokuhyo)) return null;
+    const age = ageOf(p);
+    const mk = Math.min(Math.round(p.mokuhyo), age + 100);
+    return mk > age ? [age, mk] : null;
+  }
+  /* 切り替わる年齢（なし・空なら null＝はじめから、とりくずす時期） */
+  function kirikae(p) {
+    if (!p.kirikae || p.kirikae.label === 'none') return null;
+    return isNum(p.kirikae.age) ? Math.max(0, Math.min(150, Math.round(p.kirikae.age))) : null;
+  }
+  /* 辞めてから60歳になるまでの a歳の年に、国民年金をどうするか（harau／menjo／yuuyo／minou） */
+  function miraiKind(p, a, kk) {
+    const base = kk != null ? kk : ageOf(p);
+    for (const row of (p.nenkin.auto.mirai || [])) {
+      const kara = isNum(row.kara) ? row.kara : base;
+      const made = isNum(row.made) ? row.made : 59;
+      if (kara <= a && a <= made) return (row.kind === 'yuuyo' && a >= 50) ? 'minou' : (row.kind || 'minou');
+    }
+    return 'minou';
+  }
+  /* 年金の月額と内訳 */
+  function nenkin(p, S) {
+    S = seido(S);
+    const n = p.nenkin;
+    if (n.mode !== 'auto') {
+      // kawaru＝[{age, gaku}] その年齢の年から年金の月額が変わる（手当が止まるなど・正解.py の nenkin_kawaru と同じ・2026-10-14）
+      return { direct: true, gaku: num(n.direct.gaku), kaishi: isNum(n.direct.kaishi) ? n.direct.kaishi : ageOf(p), tarinai: 0,
+        kawaru: byAge(n.direct.kawaru).filter(x => isNum(x.gaku)) };
+    }
+    const A = n.auto, age = ageOf(p), kk = kirikae(p);
+    const yameru = (p.kirikae.label === 'yameru' && kk != null) ? kk : age;
+    const hataraku = Math.max(0, yameru - age) * 12;
+    const kisoHataraku = Math.max(0, Math.min(yameru, 60) - age) * 12;
+    let harau = 0, menjo = 0, yuuyo = 0;
+    for (let a = Math.max(yameru, age); a < 60; a++) {
+      const k = miraiKind(p, a, kk);
+      if (k === 'harau') harau += 12;
+      else if (k === 'menjo') menjo += 12;
+      else if (k === 'yuuyo') yuuyo += 12;
+    }
+    const noufuM = num(A.noufu) * 12, kouseiP = num(A.kousei) * 12, menjoM = num(A.menjo) * 12, yuuyoM = num(A.yuuyo) * 12;
+    const kouseiM = kouseiP + hataraku;
+    const shikaku = noufuM + menjoM + yuuyoM + kouseiM + harau + menjo + yuuyo;
+    const sonota = num(A.sonota);
+    const kaishi = isNum(A.kaishi) ? Math.min(75, Math.max(60, Math.round(A.kaishi))) : 65;
+    const base = { direct: false, kaishi, sonota, shikaku, hataraku, harau, menjo, yuuyo, kouseiM, nenshu: num(A.nenshu) };
+    if (shikaku < 120) return { ...base, gaku: sonota, tarinai: 120 - shikaku, kiso: 0, kousei: 0, kisoM: 0, ritsu: 1 };
+    const kisoM = Math.min(480, noufuM + kouseiP + kisoHataraku + harau + S.menjo * (menjoM + menjo));
+    const kiso = kisoM / 480 * S.mangaku;
+    const kousei = num(A.nenshu) / 12 * (S.rate / 1000) * kouseiM / 12;
+    const d = (kaishi - 65) * 12;
+    const ritsu = d >= 0 ? (1 + 0.007 * d) : (1 - 0.004 * -d);
+    return { ...base, gaku: (kiso + kousei) * ritsu + sonota, tarinai: 0, kiso, kousei, kisoM, ritsu };
+  }
+  const byAge = arr => (arr || []).filter(r => r && isNum(r.age)).slice().sort((x, y) => x.age - y.age);
+  /* a歳の月の支出。opt.flat＝全部この額に置き換える／opt.delta＝足す */
+  function makeShishutsu(p, opt) {
+    const s = p.shishutsu, kG = byAge(s.kawaruG), kK = byAge(s.kawaruK);
+    const stop = isNum(s.sepanYameru) ? s.sepanYameru : null;
+    return a => {
+      if (isNum(opt.flat)) return opt.flat;
+      let m;
+      if (s.mode !== 'koumoku') {
+        m = num(s.goukei);
+        for (const r of kG) if (a >= r.age) m = num(r.gaku);
+      } else {
+        m = 0;
+        for (const it of (s.items || [])) {
+          let v = num(it.gaku);
+          for (const r of kK) if (r.item === it.id && a >= r.age) v = num(r.gaku);
+          if (it.sepan && !(stop != null && a >= stop)) v = v / 2;
+          m += v;
+        }
+      }
+      if (isNum(opt.delta)) m += opt.delta;
+      return m;
+    };
+  }
+  /* 一時費用の行が、a歳の年にいくらになるか */
+  function ichijiNen(r, a) {
+    const g = num(r.gaku);
+    if (r.kind === 'kurikaeshi') {
+      if (!isNum(r.kara)) return 0;
+      const goto = Math.max(1, Math.round(num(r.goto) || 1)), kai = Math.round(num(r.kai));
+      return (a >= r.kara && (a - r.kara) % goto === 0 && Math.floor((a - r.kara) / goto) < kai) ? g : 0;
+    }
+    if (r.kind === 'narasu') {
+      if (!isNum(r.kara) || !isNum(r.made) || r.made < r.kara) return 0;
+      return (r.kara <= a && a <= r.made) ? g / (r.made - r.kara + 1) : 0;
+    }
+    return (isNum(r.age) && a === r.age) ? g : 0;
+  }
+  function isanRows(p) {
+    const kk = kirikae(p);
+    const link = p.kirikae && p.kirikae.label !== 'none';
+    return (p.isan || []).map(x => ({ name: x.name || '遺産', g: num(x.gaku), age: (x.renkei && link) ? kk : (isNum(x.age) ? x.age : null) }))
+      .filter(x => x.age != null);
+  }
+  function tameruRows(p, age) {
+    return (p.tameru || []).map(x => ({
+      kara: isNum(x.kara) ? x.kara : age, made: isNum(x.made) ? x.made : 200,
+      tsuki: x.tani === 'nen' ? num(x.gaku) / 12 : num(x.gaku),
+      nen: x.tani === 'nen' ? num(x.gaku) : num(x.gaku) * 12,
+      nisa: x.oki === 'nisa',
+    }));
+  }
+  /* 年ごとの残高。opt：r（利回り%）・flat・delta・tasu（いまの預金に足す）・tsumitate（貯める額を毎月この額に）・
+     wari（貯める額のうち NISA の割合 0〜1）・sagaru {age, pct} */
+  function zandaka(p, S, opt = {}) {
+    S = seido(S);
+    const rg = range(p); if (!rg) return [];
+    const [age, mk] = rg;
+    const r = Math.max(-99, Math.min(100, isNum(opt.r) ? opt.r : num(p.r))) / 100;
+    let yokin = num(p.yokin) + (opt.tasu || 0), nisa = num(p.nisa);
+    const N = nenkin(p, S), n = N.gaku, kk = kirikae(p), auto = !N.direct;
+    const shAt = makeShishutsu(p, opt);
+    let rows = tameruRows(p, age);
+    if (isNum(opt.tsumitate)) {
+      let zen = 0, ns = 0;
+      for (const x of rows) zen += x.tsuki;
+      for (const x of rows) if (x.nisa) ns += x.tsuki;
+      const wari = zen ? ns / zen : 0;
+      const kara = rows.length ? Math.min(...rows.map(x => x.kara)) : age;
+      const t = opt.tsumitate;
+      rows = [{ kara, made: 200, nen: (t * wari) * 12, nisa: true }, { kara, made: 200, nen: (t * (1 - wari)) * 12, nisa: false }];
+    }
+    if (isNum(opt.wari)) {
+      const w = opt.wari;
+      rows = rows.flatMap(x => [{ ...x, nen: x.nen * w, nisa: true }, { ...x, nen: x.nen * (1 - w), nisa: false }]);
+    }
+    const isan = isanRows(p), ichiji = p.ichiji || [];
+    const out = [];
+    for (let a = age; a < mk; a++) {
+      if (opt.sagaru && a === opt.sagaru.age) nisa *= (1 - Math.max(0, Math.min(100, num(opt.sagaru.pct))) / 100);
+      nisa *= (1 + r);
+      const row = { a, tame: false, tY: 0, tN: 0, sh: 0, hk: 0, nk: 0, is: 0, ic: 0, isanNames: [], ichijiNames: [] };
+      if (kk != null && a < kk) {
+        row.tame = true;
+        for (const x of rows) {
+          if (x.kara <= a && a <= x.made) {
+            if (x.nisa) { nisa += x.nen; row.tN += x.nen; } else { yokin += x.nen; row.tY += x.nen; }
+          }
+        }
+      } else {
+        row.sh = shAt(a) * 12; yokin -= row.sh;
+        if (a < 60 && auto && miraiKind(p, a, kk) === 'harau') { row.hk = S.hoken * 12; yokin -= row.hk; }
+        if (a >= N.kaishi) {
+          let nn = n;
+          for (const x of (N.kawaru || [])) if (a >= x.age) nn = num(x.gaku);
+          row.nk = nn * 12; yokin += row.nk;
+        }
+      }
+      for (const x of isan) if (a === x.age) { yokin += x.g; row.is += x.g; row.isanNames.push(x.name); }
+      for (const x of ichiji) {
+        const v = ichijiNen(x, a);
+        yokin -= v; row.ic += v;
+        if (v) { if (x.kind !== 'narasu') row.ichijiNames.push(x.name || '一時費用'); else row.icHoka = true; }
+      }
+      if (yokin < 0 && nisa > 0) { const m = Math.min(nisa, -yokin); nisa -= m; yokin += m; }
+      row.yokin = yokin; row.nisa = nisa; row.total = yokin + nisa;
+      out.push(row);
+    }
+    return out;
+  }
+  function tsukiru(p, S, opt = {}) {
+    for (const r of zandaka(p, S, opt)) if (!(r.total >= -0.5)) return r.a;
+    return null;
+  }
+  /* 尽きる年齢・一度戻る年齢・もう一度尽きる年齢・最後の残高 */
+  function mikomi(p, S, opt = {}) {
+    const rows = zandaka(p, S, opt);
+    let t = null, back = null, again = null;
+    for (const r of rows) {
+      const bad = !(r.total >= -0.5);
+      if (t == null) { if (bad) t = r.a; }
+      else if (back == null) { if (!bad) back = r.a; }
+      else if (again == null && bad) again = r.a;
+    }
+    return { rows, tsukiru: t, back, again, saigo: rows.length ? rows[rows.length - 1].total : 0 };
+  }
+  /* いまの預金にあといくら足せば、目標の年齢まで持つか（1,000円きざみ・切り上げ）。1億円でも足りなければ null */
+  function atoIkura(p, S, opt = {}) {
+    if (tsukiru(p, S, opt) == null) return 0;
+    let lo = 0, hi = 100000000;
+    if (tsukiru(p, S, { ...opt, tasu: hi }) != null) return null;
+    while (hi - lo > 1000) {
+      let mid = Math.floor(Math.floor((lo + hi) / 2) / 1000) * 1000;
+      if (mid === lo) mid += 1000;
+      if (tsukiru(p, S, { ...opt, tasu: mid }) == null) hi = mid; else lo = mid;
+    }
+    return hi;
+  }
+  /* 目標の年齢まで持つ、とりくずす時期の月の支出の上限（100円きざみ・切り捨て）。0円でも持たなければ null */
+  function tsukiIkura(p, S, opt = {}) {
+    if (tsukiru(p, S, { ...opt, flat: 0 }) != null) return null;
+    let lo = 0, hi = 1000000;
+    while (hi - lo > 100) {
+      let mid = Math.floor(Math.floor((lo + hi) / 2) / 100) * 100;
+      if (mid === lo) mid += 100;
+      if (tsukiru(p, S, { ...opt, flat: mid }) == null) lo = mid; else hi = mid;
+    }
+    return lo;
+  }
+  /* 目標の年齢まで持たせるのに、貯める時期に月いくら積み立てればいいか（100円きざみ・切り上げ）。100万円でも足りなければ null */
+  function tsumitateIkura(p, S, opt = {}) {
+    let lo = 0, hi = 1000000;
+    if (tsukiru(p, S, { ...opt, tsumitate: hi }) != null) return null;
+    if (tsukiru(p, S, { ...opt, tsumitate: 0 }) == null) return 0;
+    while (hi - lo > 100) {
+      let mid = Math.floor(Math.floor((lo + hi) / 2) / 100) * 100;
+      if (mid === lo) mid += 100;
+      if (tsukiru(p, S, { ...opt, tsumitate: mid }) == null) hi = mid; else lo = mid;
+    }
+    return hi;
+  }
+  /* a歳の月の支出（いまの見込み） */
+  function shishutsuAt(p, a) { return makeShishutsu(p, {})(a); }
+  /* いまの見込みの支出（年齢で変わる分も含む）に、毎月いくら足しても目標の年齢まで持つか（100円きざみ・マイナスなら、
+     その額を減らすと持つ）。「ずっと同じ額の上限」とくらべると、65歳から上がる分を見落として「多く使える」のに尽きる、
+     と食い違うため（2026-10-14・極の道具の _sa と同じ） */
+  function sabun(p, S, opt = {}) {
+    const ok = d => tsukiru(p, S, { ...opt, delta: d }) == null;
+    let lo = -1000000, hi = 1000000;
+    if (ok(hi)) return hi;
+    if (!ok(lo)) return lo;
+    while (hi - lo > 100) {
+      let mid = Math.floor(Math.floor((lo + hi) / 2) / 100) * 100;
+      if (mid === lo) mid += 100;
+      if (ok(mid)) lo = mid; else hi = mid;
+    }
+    return lo;
+  }
+  /* 境目：切り替わる年齢を、いまの年齢＋1〜目標の年齢−1 まで動かしたときの尽きる年齢（利回り0%）と、
+     その年齢から後は全部持つ、いちばん早い年齢 k（無ければ null）。p は一時的に書き換えて、必ず戻す */
+  function sakaime(p, S) {
+    const rg = range(p);
+    if (!rg || !p.kirikae || p.kirikae.label === 'none') return null;
+    const [age, mk] = rg, lo = age + 1;
+    if (lo >= mk) return null;
+    const o = p.kirikae.age, t = {};
+    try { for (let k = lo; k < mk; k++) { p.kirikae.age = k; t[k] = tsukiru(p, S, { r: 0 }); } }
+    finally { p.kirikae.age = o; }
+    let k0 = null;
+    for (let k = mk - 1; k >= lo && t[k] == null; k--) k0 = k;
+    return { k: k0, lo, mk, t };
+  }
+  /* 損益分岐：k歳開始と65歳開始の、受け取りの合計が並ぶ年齢（65なら null） */
+  function sonekiBunki(k) {
+    const d = (k - 65) * 12;
+    if (!d) return null;
+    const r = 100 * (d >= 0 ? (1 + 0.007 * d) : (1 - 0.004 * -d));
+    return (r * k - 100 * 65) / (r - 100);
+  }
+  /* 追納：猶予・免除のうち10年ぶんまで（猶予を先に）納めたら */
+  function tsuinou(p, S) {
+    S = seido(S);
+    const A = p.nenkin.auto, yu = Math.max(0, num(A.yuuyo)), me = Math.max(0, num(A.menjo));
+    const cap = Math.min(10, yu + me);
+    if (!(cap > 0)) return null;
+    const ty = Math.min(yu, cap), tm = Math.min(me, cap - ty);
+    const q = clone(p);
+    q.nenkin.auto.noufu = num(A.noufu) + ty + tm;
+    q.nenkin.auto.yuuyo = yu - ty;
+    q.nenkin.auto.menjo = me - tm;
+    const before = nenkin(p, S), after = nenkin(q, S);
+    return { nensu: ty + tm, cost: (ty + tm) * 12 * S.hoken, before: before.gaku, after: after.gaku };
+  }
+  return { SEIDO0, seido, range, kirikae, miraiKind, nenkin, ichijiNen, zandaka, tsukiru, mikomi,
+    atoIkura, tsukiIkura, tsumitateIkura, sonekiBunki, tsuinou, shishutsuAt, sabun, sakaime };
+})();
+window.ROUGO = ROUGO;
+
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+/* ════════════════════════════════════════════════════════════════════
+   人の形・プリセット・保存
+   ════════════════════════════════════════════════════════════════════ */
+const KEY = 'rougo:v1';
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+function blank() {
+  return {
+    id: uid(), name: '新しい人', age: null, mokuhyo: 90, yokin: null, nisa: null,
+    kirikae: { label: 'none', age: null, aite: { name: '', sa: null } },
+    tameru: [], r: 3, tedori: null,
+    nenkin: {
+      mode: 'direct',
+      direct: { gaku: null, kaishi: 65, memo: '', kawaru: [] },
+      auto: { noufu: null, kousei: null, menjo: null, yuuyo: null, nenshu: null,
+        mirai: [{ id: uid(), kara: null, made: 59, kind: 'harau' }], kaishi: 65, sonota: null, memo: '' },
+    },
+    isan: [], ichiji: [],
+    shishutsu: { mode: 'goukei', goukei: null, items: [], kawaruG: [], kawaruK: [], sepanYameru: null },
+    hoho: { wari: null, sagaruAge: null, sagaruPct: 30, nensu: 10 },
+  };
+}
+
+/* 見本A：親と住んでいて、いつか一人暮らしになる人（数字はすべて架空の見本） */
+function mihonA() {
+  const p = blank();
+  const it = (name, gaku) => ({ id: uid(), name, gaku, sepan: false });
+  const items = [it('食費', 40000), it('光熱費', 15000), it('通信', 6000), it('日用品', 3000), it('被服・理美容', 3000),
+    it('国保', 2000), it('介護保険料', 0), it('医療', 3000), it('そのほか', 7000)];
+  const kokuho = items[5].id, kaigo = items[6].id;
+  Object.assign(p, {
+    name: '見本A', age: 45, mokuhyo: 90, yokin: 3000000, nisa: 500000,
+    kirikae: { label: 'hitori', age: null, aite: { name: '親', sa: 28 } },
+    tameru: [
+      { id: uid(), name: 'NISA（つみたて）', kara: 45, made: null, gaku: 20000, tani: 'tsuki', oki: 'nisa' },
+      { id: uid(), name: '普通預金', kara: 45, made: null, gaku: 10000, tani: 'tsuki', oki: 'yokin' },
+    ],
+    r: 3,
+    isan: [{ id: uid(), name: '遺産', gaku: 2000000, age: null, renkei: true }],
+    ichiji: [
+      { id: uid(), name: '家電（エアコン・洗濯機・冷蔵庫）', gaku: 300000, kind: 'kurikaeshi', kara: 50, goto: 10, kai: 3 },
+      { id: uid(), name: '給湯器', gaku: 150000, kind: '1kai', age: 60 },
+      { id: uid(), name: '家の修理（毎年少しずつ）', gaku: 2000000, kind: 'narasu', kara: 46, made: 89 },
+    ],
+    shishutsu: { mode: 'koumoku', goukei: 79000, items,
+      kawaruG: [], kawaruK: [{ id: uid(), age: 65, item: kokuho, gaku: 1000 }, { id: uid(), age: 65, item: kaigo, gaku: 3000 }],
+      sepanYameru: null },
+  });
+  p.nenkin.mode = 'direct';
+  p.nenkin.direct = { gaku: 70000, kaishi: 65, memo: '例：ねんきん定期便の見込み額', kawaru: [] };
+  return p;
+}
+/* 見本B：働いていて、いつか辞める人（数字はすべて架空の見本） */
+function mihonB() {
+  const p = blank();
+  Object.assign(p, {
+    name: '見本B', age: 35, mokuhyo: 90, yokin: 1000000, nisa: 0,
+    kirikae: { label: 'yameru', age: null, aite: { name: '', sa: null } },
+    tameru: [{ id: uid(), name: '貯金', kara: 35, made: null, gaku: 20000, tani: 'tsuki', oki: 'yokin' }],
+    r: 3,
+    shishutsu: { mode: 'goukei', goukei: 120000, items: [], kawaruG: [], kawaruK: [], sepanYameru: null },
+  });
+  p.nenkin.mode = 'auto';
+  p.nenkin.auto = { noufu: 5, kousei: 10, menjo: 0, yuuyo: 0, nenshu: 3500000,
+    mirai: [{ id: uid(), kara: null, made: 59, kind: 'harau' }], kaishi: 65, sonota: 0,
+    memo: '' };
+  return p;
+}
+
+/* 読み込んだものを、いまの形にそろえる（足りない欄は既定の値・型の違う値は捨てる） */
+function normalize(x) {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  const fit = (d, v) => {
+    if (Array.isArray(d)) {
+      if (!Array.isArray(v)) return d;
+      return v.filter(o => o && typeof o === 'object' && !Array.isArray(o))
+        .map(o => ({ ...o, id: typeof o.id === 'string' ? o.id : uid() }));
+    }
+    if (d && typeof d === 'object') {
+      const o = {};
+      const src = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+      for (const k of Object.keys(d)) o[k] = fit(d[k], src[k]);
+      return o;
+    }
+    if (typeof d === 'string') return typeof v === 'string' ? v : d;
+    if (typeof d === 'number' || d === null) return isNum(v) ? v : (v === null ? null : d);
+    return d;
+  };
+  const q = fit(blank(), x);
+  q.tameru = mergeRows(q.tameru);
+  return q;
+}
+/* 「41〜42歳 NISA 月3万」と「43歳〜 NISA 月3万」のように、続いた時期で名前・額・置き場所が同じ行を1行にまとめる
+   （2026-09-29 NISA が2行に分かれて見えたため）。毎年足す額は変わらないので、計算の答えも変わらない */
+function mergeRows(rows) {
+  const out = rows.slice();
+  let again = true;
+  while (again) {
+    again = false;
+    for (let i = 0; i < out.length && !again; i++) {
+      const a = out[i];
+      if (!isNum(a.made)) continue;
+      const j = out.findIndex(b => b !== a && b.kara === a.made + 1 && b.gaku === a.gaku && b.oki === a.oki &&
+        (b.tani || 'tsuki') === (a.tani || 'tsuki') && (b.name || '') === (a.name || ''));
+      if (j >= 0) { a.made = out[j].made; out.splice(j, 1); again = true; }
+    }
+  }
+  return out;
+}
+
+let state = null;
+function initState() {
+  return { people: [mihonA(), mihonB()], active: 0, seido: { ...SEIDO0 } };
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const s = fromJson(raw);
+      if (s) return s;
+    }
+  } catch (e) { /* 読めないときは、はじめの形で */ }
+  return initState();
+}
+function fromJson(text) {
+  let o;
+  try { o = JSON.parse(text); } catch (e) { return null; }
+  if (!o || typeof o !== 'object' || !Array.isArray(o.people)) return null;
+  const people = o.people.map(normalize).filter(Boolean);
+  if (!people.length) return null;
+  const act = isNum(o.active) ? Math.max(0, Math.min(people.length - 1, Math.round(o.active))) : 0;
+  return { people, active: act, seido: ROUGO.seido(o.seido) };
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* 保存できない端末でも、計算はそのまま */ }
+}
+const cur = () => state.people[state.active];
+
+/* ════════════════════════════════════════════════════════════════════
+   書き方の道具
+   ════════════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function comma(n) {
+  const a = Math.round(Math.abs(n));
+  return (n < 0 && a !== 0 ? '−' : '') + String(a).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+const yen = n => isFinite(n) ? comma(n) + '円' : '—';
+function man(n) {
+  if (!isFinite(n)) return '—';
+  if (Math.abs(n) < 10000) return yen(n);
+  return (n < 0 ? '−' : '') + comma(Math.round(Math.abs(n) / 10000)) + '万円';
+}
+function ageMonth(x) {
+  let y = Math.floor(x), m = Math.round((x - y) * 12);
+  if (m === 12) { y++; m = 0; }
+  return m ? `${y}歳${m}か月` : `${y}歳`;
+}
+function trimNum(v) { return String(Math.round(v * 10000) / 10000); }
+/* 入力欄に出すときの形（欄を離れているときはカンマ付き） */
+function fmtIn(v) {
+  const r = Math.round(v * 10000) / 10000, [a, b] = String(Math.abs(r)).split('.');
+  return (r < 0 ? '-' : '') + a.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (b ? '.' + b : '');
+}
+const nw = t => `<span class="nw">${t}</span>`;
+function normDigits(s) {
+  return s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[．。]/g, '.').replace(/[－ー−‐]/g, '-');
+}
+const KLABEL = { yameru: '辞める年齢', hitori: '一人暮らしになる年齢', none: 'なし' };
+const KSHORT = { yameru: '辞める', hitori: '一人暮らし', none: '' };
+const KIND = { harau: '払う', menjo: '免除', yuuyo: '猶予', minou: '払わない' };
+/* 一緒に住む人の歳（「（親80歳）」）。呼び名と年の差が入っているときだけ。short＝「（親80）」 */
+function aiteTxt(p, k, short) {
+  const A = p.kirikae && p.kirikae.label === 'hitori' && p.kirikae.aite;
+  if (!A || !A.name || !isNum(A.sa) || !isNum(k)) return '';
+  return `（${A.name}${k + A.sa}${short ? '' : '歳'}）`;
+}
+/* 結果の枠の頭に出す「何の答えか」（一人暮らしが50歳（親80歳）なら） */
+function kirikaeCtx(p, kk) {
+  if (kk == null) return '';
+  if (p.kirikae.label === 'hitori') return `一人暮らしが${kk}歳${aiteTxt(p, kk)}なら`;
+  if (p.kirikae.label === 'yameru') return `${kk}歳で辞めたら`;
+  return '';
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   入力の部品。obj[key] を読み書きし、変わったら changed() を呼ぶ
+   ════════════════════════════════════════════════════════════════════ */
+/* 触っている部品の位置を保つ（2026-09-28 1文字入れるごとに画面が跳ねて使えなかったため）。
+   計算し直すと、入力欄より上の結果・グラフ・ほぉほぉの高さが変わり、欄が押し出される。
+   パソコンのブラウザは自分で位置を保つが、iPhone の Safari はしないので、ずれたぶんをここで戻す。 */
+let touched = null;
+for (const t of ['pointerdown', 'focusin', 'input', 'change']) {
+  document.addEventListener(t, e => { if (e.target instanceof Element) touched = e.target; }, true);
+}
+function anchorEl() {
+  // 文字を打っている欄があればそれ。なければ、最後に指で触った部品（押したボタンに残った選択を目印にしない）
+  const a = document.activeElement;
+  if (a && document.contains(a) && a.matches('input.n, input.tx, textarea, select')) return a;
+  if (touched && document.contains(touched)) return touched;
+  return a && a !== document.body && document.contains(a) ? a : null;
+}
+function keepPlace(el, fn) {
+  const t0 = el ? el.getBoundingClientRect().top : 0;
+  fn();
+  if (el && document.contains(el)) scrollKeep(el.getBoundingClientRect().top - t0);
+}
+/* d だけ画面を動かす。ページの終わりで止まって戻しきれないときは、下の余白（#spacer）を足してから動かす */
+function scrollKeep(d) {
+  if (Math.abs(d) <= 0.5) return;
+  const maxY = document.documentElement.scrollHeight - window.innerHeight;
+  if (window.scrollY + d > maxY) {
+    const sp = $('spacer');
+    sp.style.height = (sp.offsetHeight + Math.ceil(window.scrollY + d - maxY) + 2) + 'px';
+  }
+  window.scrollBy(0, d);
+}
+let updTimer = 0;
+function changed() {
+  save();
+  if (!updTimer) updTimer = requestAnimationFrame(() => { updTimer = 0; update(); });
+}
+function numInput(obj, key, o = {}) {
+  const i = el('input', 'n' + (o.w ? ' ' + o.w : ''));
+  i.type = 'text';
+  i.inputMode = o.int ? 'numeric' : 'decimal';
+  i.autocomplete = 'off';
+  if (o.ph) i.placeholder = o.ph;
+  if (o.aria) i.setAttribute('aria-label', o.aria);
+  if (o.phw) i.classList.add('phw');
+  const sc = o.scale || 1;
+  const raw = v => trimNum(v / sc);
+  i._show = () => { const v = obj[key]; i.value = isNum(v) ? (document.activeElement === i ? raw(v) : fmtIn(v / sc)) : ''; };
+  i._show();
+  i.addEventListener('focus', () => { const v = obj[key]; if (isNum(v) && !i.classList.contains('bad')) i.value = raw(v); });
+  i.addEventListener('blur', () => {
+    if (i.classList.contains('bad')) { i.classList.remove('bad'); if (LIVE.rangeMsg) LIVE.rangeMsg = ''; }
+    i._show();
+  });
+  i.addEventListener('input', () => {
+    const t = normDigits(i.value).replace(/[,，\s円万歳]/g, '');
+    LIVE.rangeMsg = '';
+    if (t === '') { obj[key] = null; i.classList.remove('bad'); }
+    else {
+      const v = Number(t);
+      if (!isFinite(v)) { i.classList.add('bad'); return; }
+      // 年齢の欄（切り替わる年齢・遺産の年齢）は、範囲の外の数字を計算に使わない。
+      // 「50」の「5」の時点で「40歳で尽きる」と赤く出してしまわないように（範囲に入った時点で使う）。
+      if (o.bounds) {
+        const [lo, hi] = o.bounds();
+        if (v < lo || v > hi) { i.classList.add('bad'); LIVE.rangeMsg = `${lo}〜${hi}歳で入れてください`; liveShow(); return; }
+      }
+      i.classList.remove('bad');
+      obj[key] = v * sc;
+    }
+    (o.onchange || changed)();
+  });
+  return i;
+}
+/* 欄と単位をひとまとめにする（折り返しで単位だけ次の行に落ちないように） */
+function grp(input, unit) {
+  const g = el('span', 'g');
+  g.append(input);
+  if (unit) g.append(el('span', 'unit', unit));
+  return g;
+}
+function ctl(input, unit) {
+  const c = el('span', 'ctl');
+  c.append(input);
+  if (unit) c.append(el('span', 'unit', unit));
+  return c;
+}
+function field(label, input, unit, hint) {
+  const f = el('div', 'f');
+  f.append(el('span', 'fl', label), ctl(input, unit));
+  if (hint) { const h = el('div', 'hint', hint); h.style.flexBasis = '100%'; f.append(h); }
+  return f;
+}
+/* スライダーと数字の組 */
+function pair(obj, key, o) {
+  const box = el('div', 'pair');
+  const rg = el('input');
+  rg.type = 'range'; rg.min = o.min; rg.max = o.max; rg.step = o.step || 1;
+  if (o.aria) rg.setAttribute('aria-label', o.aria);
+  const sc = o.scale || 1;
+  const after = o.onchange || changed;
+  const sync = () => {
+    const v = obj[key];
+    rg.value = isNum(v) ? v / sc : (box._bounds ? box._bounds()[2] : (isNum(o.def) ? o.def : o.min));
+    box.classList.toggle('unset', !isNum(v));
+  };
+  const ni = numInput(obj, key, { ...o, onchange: () => { sync(); after(); } });
+  rg.addEventListener('input', () => {
+    obj[key] = Number(rg.value) * sc;
+    ni._show(); ni.classList.remove('bad'); box.classList.remove('unset');
+    after();
+  });
+  sync();
+  box._range = rg; box._num = ni; box._sync = sync;
+  if (o.bounds) { box._bounds = o.bounds; box.classList.add('dyn'); }
+  box.append(rg, ctl(ni, o.unit));
+  return box;
+}
+function sel(obj, key, opts, o = {}) {
+  const s = el('select');
+  if (o.aria) s.setAttribute('aria-label', o.aria);
+  for (const [v, t] of opts) s.add(new Option(t, v));
+  s.value = obj[key] != null && opts.some(x => x[0] === obj[key]) ? obj[key] : opts[0][0];
+  s.addEventListener('change', () => { obj[key] = s.value; o.rerender ? rerenderForm() : changed(); });
+  return s;
+}
+function chk(obj, key, label, o = {}) {
+  const l = el('label', 'chk');
+  const c = el('input'); c.type = 'checkbox'; c.checked = !!obj[key];
+  c.addEventListener('change', () => { obj[key] = c.checked; o.rerender ? rerenderForm() : changed(); });
+  l.append(c, document.createTextNode(label));
+  return l;
+}
+function txt(obj, key, ph, aria) {
+  const i = el('input', 'tx'); i.type = 'text'; i.value = obj[key] || ''; if (ph) i.placeholder = ph;
+  if (aria) i.setAttribute('aria-label', aria);
+  i.addEventListener('input', () => { obj[key] = i.value; changed(); });
+  return i;
+}
+function xBtn(onClick, aria) {
+  const b = el('button', 'x', '×'); b.type = 'button'; b.setAttribute('aria-label', aria || 'この行を消す');
+  b.addEventListener('click', onClick);
+  return b;
+}
+function addBtn(label, onClick) {
+  const b = el('button', 'b', label); b.type = 'button';
+  b.addEventListener('click', onClick);
+  return b;
+}
+function chips(list, onPick) {
+  const c = el('div', 'chips');
+  for (const [v, t] of list) {
+    const b = el('button', 'chip', t); b.type = 'button';
+    b.addEventListener('click', () => onPick(v));
+    c.append(b);
+  }
+  return c;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   入力の枠
+   ════════════════════════════════════════════════════════════════════ */
+const openSecs = new Set(['kihon', 'kirikae']);
+const refs = {};          // update() が書き換える場所
+function sec(id, title, build) {
+  const d = el('details', 'card sec'); d.id = 'sec-' + id; d.open = openSecs.has(id);
+  d.addEventListener('toggle', () => { if (d.open) openSecs.add(id); else openSecs.delete(id); });
+  const s = el('summary');
+  const row = el('div', 'sumrow');
+  const note = el('span', 'note'); note.id = 'sn-' + id;
+  row.append(el('span', 't', title), note);
+  s.append(row);
+  const body = el('div', 'sec-body');
+  build(body);
+  d.append(s, body);
+  return d;
+}
+function rerenderForm() {
+  const el = anchorEl();
+  const sec = el && el.closest('details.sec');
+  const id = sec ? sec.id : null, t0 = sec ? sec.getBoundingClientRect().top : 0;
+  renderForm();
+  save();
+  if (updTimer) { cancelAnimationFrame(updTimer); updTimer = 0; }
+  updateCore();
+  const s2 = id && $(id);
+  if (s2) scrollKeep(s2.getBoundingClientRect().top - t0);
+  liveRefind();
+  liveShow();
+}
+
+function renderForm() {
+  const p = cur(), S = state.seido;
+  const F = $('form');
+  F.innerHTML = '';
+  refs.renkei = []; refs.miraiSel = []; refs.miraiOv = [];
+
+  F.append(sec('kihon', '基本', b => {
+    const nf = el('div', 'f col'); nf.append(el('span', 'fl', '呼び名'), txt(p, 'name', '名前', '呼び名'));
+    nf.querySelector('input').addEventListener('input', renderTabs);
+    b.append(nf);
+    b.append(field('いまの年齢', numInput(p, 'age', { w: 's', int: true, aria: 'いまの年齢', onchange: () => { changed(); } }), '歳'));
+    const mf = el('div', 'f col'); mf.append(el('span', 'fl', '目標の年齢（何歳まで持たせたいか）'),
+      pair(p, 'mokuhyo', { min: 70, max: 110, unit: '歳', w: 's', int: true, aria: '目標の年齢' }));
+    b.append(mf);
+    b.append(field('いまの預金の残高', numInput(p, 'yokin', { scale: 10000, aria: 'いまの預金' }), '万円'));
+    b.append(field('いまの NISA の残高', numInput(p, 'nisa', { scale: 10000, aria: 'いまのNISA' }), '万円',
+      'これから毎月積み立てる額は「貯める額」の枠に入れます。'));
+  }));
+  {
+    const box = $('io-del');
+    box.innerHTML = '';
+    const del = addBtn(`「${p.name || 'この人'}」を消す`, () => {
+      if (state.people.length <= 1) return;
+      if (!confirm(`「${p.name || 'この人'}」を消しますか？入れた数字も消えます。`)) return;
+      state.people.splice(state.active, 1);
+      state.active = Math.max(0, state.active - 1);
+      save(); renderAll();
+    });
+    del.classList.add('del'); del.id = 'del-person';
+    if (state.people.length <= 1) del.disabled = true;
+    box.append(del);
+    if (state.people.length <= 1) box.append(el('div', 'hint', '最後の1人は消せません。'));
+  }
+
+  F.append(sec('kirikae', '切り替わる年齢', b => {
+    b.append(field('何が切り替わるか', sel(p.kirikae, 'label', [['yameru', '辞める年齢'], ['hitori', '一人暮らしになる年齢'], ['none', 'なし（はじめから、とりくずす）']],
+      { rerender: true, aria: '切り替わる年齢の呼び名' })));
+    const L = p.kirikae.label;
+    if (L !== 'none') {
+      const f = el('div', 'f col');
+      f.append(el('span', 'fl', KLABEL[L]));
+      const bk = () => { const lo = isNum(p.age) ? Math.round(p.age) + 1 : 20, hi = isNum(p.mokuhyo) ? Math.round(p.mokuhyo) - 1 : 100;
+        return [lo, Math.max(lo, hi), Math.min(Math.max(lo, 50), Math.max(lo, hi))]; };
+      const [lo, hi, df] = bk();
+      f.append(pair(p.kirikae, 'age', { min: lo, max: hi, unit: '歳', w: 's', int: true, def: df, aria: KLABEL[L], bounds: bk }));
+      b.append(f);
+      if (L === 'hitori') {
+        // 一緒に住んでいる人の歳も出す（2026-10-14 UX レビュー「で、一緒に住む家族が何歳ならいいの？」＝私の年齢から読み替えなくて済む）
+        const A = p.kirikae.aite || (p.kirikae.aite = { name: '', sa: null });
+        const af = el('div', 'f col');
+        af.append(el('span', 'fl', '一緒に住んでいる人（入れると、答えにその人の歳も出ます）'));
+        const rl = el('div', 'rl');
+        const nm = txt(A, 'name', '親', '一緒に住んでいる人の呼び名');
+        nm.style.width = '5.5em'; nm.style.flex = 'none';
+        rl.append(nm, el('span', 'unit', 'は'), grp(numInput(A, 'sa', { w: 's', int: true, aria: '一緒に住んでいる人との年の差' }), '歳上'));
+        af.append(rl);
+        b.append(af);
+      }
+    }
+    b.append(el('div', 'hint', L === 'yameru'
+      ? '辞める年齢の前の年までは働いていて、「貯める額」だけを足します。辞める年齢から、年金と支出で計算します。働いた年は、厚生年金にも基礎年金にも数えます。'
+      : L === 'hitori'
+        ? '一人暮らしになる前の年までは、「貯める額」だけを足します（同居中の暮らしの費用は、貯める額を引いた残りでまかなう前提）。一人暮らしになる年から、年金と支出で計算します。'
+        : 'はじめから、年金と支出で計算します（貯める額は使いません）。'));
+  }));
+
+  F.append(sec('tameru', '貯める額と利回り', b => {
+    b.append(el('div', 'hint', p.kirikae.label === 'none'
+      ? '切り替わる年齢が「なし」なので、貯める額は計算に入りません。'
+      : `${KLABEL[p.kirikae.label]}の前の年まで、この額を足します。額が変わる時期があるときだけ、行を分けます（いまの残高は「基本」の枠）。`));
+    const rows = el('div', 'rows');
+    p.tameru.forEach((r, idx) => {
+      const w = el('div', 'rw');
+      const h = el('div', 'rw-h');
+      h.append(txt(r, 'name', '名前（なくてもよい）', '貯める額の名前'), xBtn(() => { p.tameru.splice(idx, 1); rerenderForm(); }));
+      const l1 = el('div', 'rl');
+      l1.append(grp(numInput(r, 'kara', { w: 's', int: true, ph: String(p.age ?? ''), aria: '何歳から' }), '歳から'),
+        grp(numInput(r, 'made', { w: 's', int: true, ph: 'ずっと', phw: true, aria: '何歳まで' }), '歳まで'));
+      const l2 = el('div', 'rl');
+      const amt = numInput(r, 'gaku', { w: 'm', aria: '貯める額' });
+      l2.append(amt, sel(r, 'tani', [['tsuki', '円／月'], ['nen', '円／年']], { aria: '単位' }),
+        sel(r, 'oki', [['yokin', '預金'], ['nisa', 'NISA']], { aria: '置き場所' }));
+      w.append(h, l1, l2, chips([[0, '0'], [5000, '5千'], [10000, '1万'], [20000, '2万'], [30000, '3万']], v => {
+        r.gaku = v; r.tani = 'tsuki'; amt._show(); rerenderForm();
+      }));
+      rows.append(w);
+    });
+    b.append(rows);
+    b.append(addBtn('＋ 貯める額の行を足す', () => {
+      p.tameru.push({ id: uid(), name: '', kara: null, made: null, gaku: null, tani: 'tsuki', oki: 'yokin' });
+      rerenderForm();
+    }));
+    const rf = el('div', 'f col');
+    rf.append(el('span', 'fl', '利回り（NISA の行にだけ掛かる）'), pair(p, 'r', { min: 0, max: 7, step: 0.5, unit: '%／年', w: 's', aria: '利回り' }));
+    rf.append(el('div', 'hint', '仮の数字です。毎年この率で増える計算です。'));
+    b.append(rf);
+    b.append(nisaKiso());
+    b.append(field('月の手取り（メモ・計算には使いません）', numInput(p, 'tedori', { aria: '月の手取り' }), '円'));
+  }));
+
+  F.append(sec('nenkin', '年金', b => {
+    b.append(field('入れ方', sel(p.nenkin, 'mode', [['direct', '直接入力'], ['auto', '自動計算']], { rerender: true, aria: '年金の入れ方' })));
+    if (p.nenkin.mode !== 'auto') {
+      const D = p.nenkin.direct;
+      b.append(field('月額', numInput(D, 'gaku', { aria: '年金の月額' }), '円'));
+      b.append(field('受け取りはじめる年齢', numInput(D, 'kaishi', { w: 's', int: true, aria: '受け取りはじめる年齢' }), '歳'));
+      b.append(el('h2', null, '○歳から変わる（手当が止まる・増えるなど）'));
+      const kr = el('div', 'rows');
+      (D.kawaru || (D.kawaru = [])).forEach((r, idx) => {
+        const w = el('div', 'rw'), l = el('div', 'rl');
+        l.append(grp(numInput(r, 'age', { w: 's', int: true, aria: '年金が変わる年齢' }), '歳から'),
+          grp(numInput(r, 'gaku', { w: 'm', aria: '新しい年金の月額' }), '円'), xBtn(() => { D.kawaru.splice(idx, 1); rerenderForm(); }));
+        w.append(l); kr.append(w);
+      });
+      b.append(kr);
+      b.append(addBtn('＋ 変わる年齢を足す', () => { D.kawaru.push({ id: uid(), age: null, gaku: null }); rerenderForm(); }));
+      b.append(el('div', 'hint', '例：手当が入っているあいだは上の月額に手当を足しておき、止まる年齢と、そこからの月額をここに入れます。'));
+      const mf = el('div', 'f col'); mf.append(el('span', 'fl', '内訳（メモ）'), txt(D, 'memo', '例：ねんきん定期便の見込み額', '年金の内訳'));
+      b.append(mf);
+      b.append(el('div', 'hint', '障害年金や給付金はこちら。繰上げ・繰下げも国民年金保険料も掛けません（障害年金1級・2級を受けている人は、保険料が法定免除のため）。'));
+    } else {
+      const A = p.nenkin.auto;
+      b.append(el('h2', null, 'いままで（0.5年きざみ）'));
+      b.append(field('国民年金を納めた年数', numInput(A, 'noufu', { w: 's', aria: '国民年金を納めた年数' }), '年'));
+      b.append(field('厚生年金に入っていた年数', numInput(A, 'kousei', { w: 's', aria: '厚生年金に入っていた年数' }), '年'));
+      b.append(field('免除（全額）の年数', numInput(A, 'menjo', { w: 's', aria: '免除の年数' }), '年'));
+      b.append(field('猶予の年数', numInput(A, 'yuuyo', { w: 's', aria: '猶予の年数' }), '年'));
+      const mi = el('div', 'hint'); refs.minou = mi; b.append(mi);
+      const mf = el('div', 'f col'); mf.append(el('span', 'fl', 'メモ'), txt(A, 'memo', '', '年金のメモ'));
+      b.append(mf);
+      b.append(el('h2', null, 'これから'));
+      b.append(field('平均の年収', numInput(A, 'nenshu', { scale: 10000, aria: '平均の年収' }), '万円', '働いた年の厚生年金に使います。'));
+      b.append(el('div', 'hint', '辞めてから60歳になるまで、国民年金をどうするか（何歳からが空なら、辞める年齢から）。猶予は50歳になるまでの年だけです。'));
+      const rows = el('div', 'rows');
+      A.mirai.forEach((r, idx) => {
+        const w = el('div', 'rw');
+        const l = el('div', 'rl');
+        const s = sel(r, 'kind', [['harau', '払う'], ['menjo', '免除'], ['yuuyo', '猶予'], ['minou', '払わない']], { aria: 'どうするか' });
+        s.dataset.idx = idx; refs.miraiSel.push(s);
+        const tail = el('span', 'tail'); tail.append(s, xBtn(() => { A.mirai.splice(idx, 1); rerenderForm(); }));
+        l.append(grp(numInput(r, 'kara', { w: 'm', int: true, ph: '辞めた年', phw: true, aria: '何歳から' }), '歳から'),
+          grp(numInput(r, 'made', { w: 's', int: true, ph: '59', aria: '何歳まで' }), '歳まで'), tail);
+        const ov = el('div', 'hint warnc'); refs.miraiOv.push(ov);
+        w.append(l, ov);
+        rows.append(w);
+      });
+      b.append(rows);
+      // 足すときは、いちばん下の行を2つに分ける（同じ期間の行を足すと、上の行が先に使われて、足した行が効かないため）。
+      // 分けた行は上の行と同じ「どうするか」にしておく＝足しただけでは答えは変わらない
+      b.append(addBtn('＋ 期間を足す', () => {
+        const kk0 = ROUGO.kirikae(p), base = kk0 != null ? kk0 : p.age;
+        const L = A.mirai[A.mirai.length - 1];
+        let row = { id: uid(), kara: null, made: 59, kind: 'harau' };
+        if (L) {
+          const a = isNum(L.kara) ? L.kara : base, z = isNum(L.made) ? L.made : 59;
+          if (isNum(a) && z > a) {
+            const mid = a < 50 && 50 <= z ? 50 : Math.ceil((a + z + 1) / 2);
+            L.made = mid - 1;
+            row = { id: uid(), kara: mid, made: z, kind: L.kind === 'yuuyo' && mid >= 50 ? 'minou' : (L.kind || 'harau') };
+          } else {
+            // 分けられない（1年だけの行など）ときは、いまどの行にも入っていない年と同じ「払わない」で足す
+            row = { id: uid(), kara: z < 59 ? z + 1 : null, made: 59, kind: 'minou' };
+          }
+        }
+        A.mirai.push(row);
+        rerenderForm();
+      }));
+      const yn = el('div', 'hint'); refs.yuuyoNote = yn; b.append(yn);
+      const kf = el('div', 'f col');
+      kf.append(el('span', 'fl', '受け取りはじめる年齢（60〜75）'), pair(A, 'kaishi', { min: 60, max: 75, unit: '歳', w: 's', int: true, aria: '受け取りはじめる年齢' }));
+      b.append(kf);
+      b.append(field('その他の月額（給付金など）', numInput(A, 'sonota', { aria: 'その他の月額' }), '円'));
+    }
+  }));
+
+  F.append(sec('isan', '遺産', b => {
+    const rows = el('div', 'rows');
+    p.isan.forEach((r, idx) => {
+      const w = el('div', 'rw');
+      const h = el('div', 'rw-h');
+      h.append(txt(r, 'name', '名前', '遺産の名前'), xBtn(() => { p.isan.splice(idx, 1); rerenderForm(); }));
+      w.append(h);
+      w.append(el('div', 'hint', '金額'));
+      w.append(pair(r, 'gaku', { min: 0, max: 3000, step: 10, scale: 10000, unit: '万円', w: 'm', aria: '遺産の金額' }));
+      if (p.kirikae.label !== 'none') w.append(chk(r, 'renkei', `${KLABEL[p.kirikae.label]}と同じ年に入る`, { rerender: true }));
+      if (r.renkei && p.kirikae.label !== 'none') {
+        const t = el('div', 'hint'); t.dataset.kind = 'renkei'; refs.renkei.push(t); w.append(t);
+      } else {
+        w.append(el('div', 'hint', '入る年齢'));
+        const bi = () => { const lo = isNum(p.age) ? Math.round(p.age) : 20, hi = isNum(p.mokuhyo) ? Math.round(p.mokuhyo) - 1 : 100;
+          return [lo, Math.max(lo, hi), Math.min(lo + 10, Math.max(lo, hi))]; };
+        const [lo, hi, df] = bi();
+        w.append(pair(r, 'age', { min: lo, max: hi, unit: '歳', w: 's', int: true, def: df, aria: '遺産が入る年齢', bounds: bi }));
+      }
+      rows.append(w);
+    });
+    b.append(rows);
+    b.append(addBtn('＋ 遺産の行を足す', () => {
+      p.isan.push({ id: uid(), name: '遺産', gaku: null, age: null, renkei: false });
+      rerenderForm();
+    }));
+  }));
+
+  F.append(sec('ichiji', '一時費用', b => {
+    const rows = el('div', 'rows');
+    p.ichiji.forEach((r, idx) => {
+      const w = el('div', 'rw');
+      const h = el('div', 'rw-h');
+      h.append(txt(r, 'name', '名前', '一時費用の名前'), xBtn(() => { p.ichiji.splice(idx, 1); rerenderForm(); }));
+      const l1 = el('div', 'rl');
+      l1.append(grp(numInput(r, 'gaku', { scale: 10000, w: 'm', aria: '一時費用の金額' }), '万円'),
+        sel(r, 'kind', [['1kai', '1回'], ['kurikaeshi', 'くり返し'], ['narasu', '毎年少しずつ']], { rerender: true, aria: '払い方' }));
+      const l2 = el('div', 'rl');
+      if (r.kind === 'kurikaeshi') {
+        l2.append(grp(numInput(r, 'kara', { w: 's', int: true, aria: 'はじめの年齢' }), '歳から'),
+          grp(numInput(r, 'goto', { w: 'xs', int: true, aria: '何年ごと' }), '年ごとに'),
+          grp(numInput(r, 'kai', { w: 'xs', int: true, aria: '何回' }), '回'));
+      } else if (r.kind === 'narasu') {
+        l2.append(grp(numInput(r, 'kara', { w: 's', int: true, aria: '何歳から' }), '歳から'),
+          grp(numInput(r, 'made', { w: 's', int: true, aria: '何歳まで' }), '歳まで'), el('span', 'unit', '毎年同じ額'));
+      } else {
+        l2.append(grp(numInput(r, 'age', { w: 's', int: true, aria: '払う年齢' }), '歳の年'));
+      }
+      w.append(h, l1, l2);
+      rows.append(w);
+    });
+    b.append(rows);
+    b.append(addBtn('＋ 一時費用の行を足す', () => {
+      p.ichiji.push({ id: uid(), name: '', gaku: null, kind: '1kai', age: null });
+      rerenderForm();
+    }));
+  }));
+
+  F.append(sec('shishutsu', '月の支出', b => {
+    const s = p.shishutsu;
+    b.append(el('div', 'hint', 'とりくずす時期（切り替わる年齢から）の、月の支出です。'));
+    b.append(field('入れ方', sel(s, 'mode', [['goukei', '合計で'], ['koumoku', '項目ごとに']], { rerender: true, aria: '支出の入れ方' })));
+    if (s.mode !== 'koumoku') {
+      const gi = numInput(s, 'goukei', { aria: '月の支出の合計' });
+      b.append(field('月の合計', gi, '円'));
+      b.append(chips([[50000, 'カツカツ5万'], [55000, '絞って5.5万'], [80000, '普通8万']], v => { s.goukei = v; gi._show(); changed(); }));
+      b.append(el('h2', null, '○歳から変わる'));
+      const rows = el('div', 'rows');
+      s.kawaruG.forEach((r, idx) => {
+        const w = el('div', 'rw'), l = el('div', 'rl');
+        l.append(grp(numInput(r, 'age', { w: 's', int: true, aria: '変わる年齢' }), '歳から'),
+          grp(numInput(r, 'gaku', { w: 'm', aria: '新しい合計' }), '円'), xBtn(() => { s.kawaruG.splice(idx, 1); rerenderForm(); }));
+        w.append(l); rows.append(w);
+      });
+      b.append(rows);
+      b.append(addBtn('＋ 変わる年齢を足す', () => { s.kawaruG.push({ id: uid(), age: null, gaku: null }); rerenderForm(); }));
+    } else {
+      const rows = el('div', 'rows');
+      s.items.forEach((it, idx) => {
+        const l = el('div', 'itemrow');
+        l.append(txt(it, 'name', '項目', '項目の名前'), ctl(numInput(it, 'gaku', { w: 'm', aria: '月額' }), '円'), chk(it, 'sepan', '折半'),
+          xBtn(() => {
+            s.items.splice(idx, 1);
+            s.kawaruK = s.kawaruK.filter(r => r.item !== it.id);
+            rerenderForm();
+          }));
+        rows.append(l);
+      });
+      b.append(rows);
+      const tot = el('div', 'total'); refs.shTotal = tot; b.append(tot);
+      b.append(addBtn('＋ 項目を足す', () => { s.items.push({ id: uid(), name: '', gaku: null, sepan: false }); rerenderForm(); }));
+      b.append(field('折半をやめる年齢', numInput(s, 'sepanYameru', { w: 's', int: true, ph: 'ずっと', phw: true, aria: '折半をやめる年齢' }), '歳',
+        '空なら、ずっと折半。入れると、その年齢から全額（一人暮らしになったとき）。'));
+      b.append(el('h2', null, '○歳から変わる'));
+      const kr = el('div', 'rows');
+      const opts = s.items.map(it => [it.id, it.name || '（名前なし）']);
+      s.kawaruK.forEach((r, idx) => {
+        const w = el('div', 'rw');
+        const h = el('div', 'rw-h');
+        if (opts.length && !opts.some(o => o[0] === r.item)) r.item = opts[0][0];
+        h.append(grp(numInput(r, 'age', { w: 's', int: true, aria: '変わる年齢' }), '歳から'));
+        if (opts.length) { const sl = sel(r, 'item', opts, { aria: '項目' }); sl.style.flex = '1'; sl.style.minWidth = '0'; h.append(sl); }
+        h.append(xBtn(() => { s.kawaruK.splice(idx, 1); rerenderForm(); }));
+        const l = el('div', 'rl');
+        l.append(grp(numInput(r, 'gaku', { w: 'm', aria: '新しい金額' }), '円'), el('span', 'unit', 'にする'));
+        w.append(h, l); kr.append(w);
+      });
+      b.append(kr);
+      b.append(addBtn('＋ 変わる年齢を足す', () => {
+        s.kawaruK.push({ id: uid(), age: null, item: s.items[0] ? s.items[0].id : '', gaku: null });
+        rerenderForm();
+      }));
+    }
+  }));
+
+  F.append(sec('seido', '制度の数字（全員で共通）', b => {
+    b.append(field('基礎年金の満額（月）', numInput(S, 'mangaku', { aria: '基礎年金の満額' }), '円', '令和8年度（昭和31年4月2日以後生まれ）'));
+    b.append(field('厚生年金の率（1000分の）', numInput(S, 'rate', { w: 'm', aria: '厚生年金の率' }), '/1000', '2003年4月からの加入ぶんの率'));
+    b.append(field('国民年金保険料（月）', numInput(S, 'hoken', { aria: '国民年金保険料' }), '円', '令和8年度'));
+    b.append(field('免除の重み', numInput(S, 'menjo', { w: 'm', aria: '免除の重み' }), '', '全額免除・2009年4月からのぶんは 0.5（2分の1）'));
+    b.append(el('div', 'hint', '受給資格は10年（120か月）。繰上げは1か月ごとに−0.4%、繰下げは＋0.7%。猶予は50歳になるまで（いずれも令和8年度の制度）。'));
+    const bt = el('div', 'btns');
+    bt.append(addBtn('はじめの値に戻す', () => { Object.assign(state.seido, SEIDO0); rerenderForm(); }));
+    b.append(bt);
+  }));
+}
+
+/* NISA って？（くわしくない人向け・出どころを確かめた事実だけ） */
+function nisaKiso() {
+  const d = el('details', 'nisa-kiso');
+  d.innerHTML = `<summary><div class="sumrow"><span class="t">NISA って？（くわしくない人向け）</span></div></summary>
+    <ul>
+      <li>NISA は、投資でふえたぶんに<b>税金がかからない</b>口座です。ここでは、毎月決まった額を投資信託に積み立てる「つみたて投資枠」（1年に120万円＝月10万円まで）を考えています。</li>
+      <li>値段は<b>上がったり下がったり</b>します。金融庁の資料（1989年から、毎月同じ額を国内外の株と債券に積み立てた場合）では、100万円が<b>5年後に74万円〜176万円</b>、<b>20年後に186万円〜331万円</b>でした。長く持つほど元本割れしにくかった、ということです（これから先も同じとは限りません）。</li>
+      <li>だから、<b>近いうちに使うお金は預金</b>、<b>長く使わないお金ほど NISA</b> に向く、と言われます。ほぉほぉの「NISA と預金の分け方（めやす）」で、自分の数字で確かめられます。</li>
+      <li>NISA は<b>いつでも売って引き出せます</b>。ふえたぶんがあっても税金はかかりません。売ったぶんの枠は次の年に戻ります（1人1,800万円まで）。</li>
+      <li>「利回り」は、1年にどれだけふえるかの仮の数字です。毎年同じにはふえません。下がる年は、ほぉほぉの「NISA が下がったら」で試せます。</li>
+    </ul>
+    <div class="cap">出どころ：金融庁「貯める・増やす～資産形成」（2022年）18ページ。枠の決まりは2024年からの NISA。</div>`;
+  return d;
+}
+
+function renderTabs() {
+  const nav = $('people');
+  nav.innerHTML = '';
+  state.people.forEach((p, i) => {
+    const b = el('button', 'tab' + (i === state.active ? ' on' : ''), p.name || '（名前なし）');
+    b.type = 'button';
+    b.addEventListener('click', () => { state.active = i; save(); renderAll(); });
+    nav.append(b);
+  });
+  const add = el('button', 'tab add', '＋'); add.type = 'button'; add.setAttribute('aria-label', '人を足す');
+  add.addEventListener('click', () => {
+    state.people.push(blank()); state.active = state.people.length - 1;
+    openSecs.add('kihon');
+    save(); renderAll();
+  });
+  nav.append(add);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   ほぉほぉ（数字を1つ変えて、もう1回回すだけ）
+   ════════════════════════════════════════════════════════════════════ */
+function kekkaShort(t, mk) { return t == null ? `${mk}歳まで持つ` : `${t}歳で尽きる`; }
+const ks = (t, mk) => nw(kekkaShort(t, mk));
+function kekka(m, mk) {
+  return m.tsukiru == null ? `${nw(`${mk}歳まで持ちます`)}（残り${nw(man(m.saigo))}）` : nw(`${m.tsukiru}歳の年に尽きます`);
+}
+function diffText(a, b) {
+  if (a == null && b == null) return '';
+  if (a == null) return '（尽きるようになる）';
+  if (b == null) return '（持つようになる）';
+  const d = b - a;
+  return d > 0 ? `（${d}年のびる）` : d < 0 ? `（${-d}年はやまる）` : '（変わらない）';
+}
+function withP(p, f) { const q = clone(p); f(q); return q; }
+function hasNisa(p) { return num(p.nisa) > 0 || (p.tameru || []).some(r => r.oki === 'nisa' && num(r.gaku) > 0); }
+/* 数字を1つ変えた q の見通しを、いまとくらべた1行にする。
+   尽きる年齢が同じときは「（変わらない）」ではなく、あといくら／残りの差を出す（2026-09-28 UX レビュー） */
+function effect(c, q, opt = {}) {
+  const { S, mk, m0 } = c;
+  const o = { r: 0, ...opt };
+  const t = ROUGO.tsukiru(q, S, o);
+  if (t !== m0.tsukiru) return `${ks(t, mk)}${diffText(m0.tsukiru, t)}`;
+  if (t == null) {
+    const sg = ROUGO.mikomi(q, S, o).saigo;
+    return Math.round(sg / 10000) === Math.round(m0.saigo / 10000) ? `${ks(t, mk)}（変わらない）`
+      : `${ks(t, mk)}（残り${nw(man(m0.saigo))} → ${nw(man(sg))}）`;
+  }
+  const a = ROUGO.atoIkura(q, S, o);
+  if (a == null || c.a0 == null || a === c.a0) return `${ks(t, mk)}（変わらない）`;
+  return `${ks(t, mk)}（あと${nw(man(c.a0))} → ${nw(man(a))}）`;
+}
+const ARROW = ' <span class="arrow">→</span> ';
+/* いまの「貯める額」のうち NISA に入る割合（%・切り捨て）。行の月額を足すのではなく、切り替わる年齢までに年ごとに足した額で見る
+   （＝ROUGO の wari と同じ意味。「NISA と預金の分け方」と「貯める額のうち、NISA に回す割合」で同じ数字にする） */
+function nisaNow(c) {
+  let z = 0, zn = 0;
+  for (const r of c.m0.rows) if (c.kk == null || r.a < c.kk) { z += r.tY + r.tN; zn += r.tN; }
+  return z > 0 ? Math.floor(zn / z * 100 + 1e-9) : null;
+}
+
+/* main: true … はじめから見える6つ。残りは「ほかの ほぉほぉ」にたたむ（結果と入力のあいだを短くするため） */
+const HOHO = [
+  /* 2026-10-14 UX レビュー：「一緒に住む家族が何歳まで元気なら足りるか」の答えなので、はじめから見える所のいちばん上に。
+     境目を1文で言い切り、一緒に住む人の歳も添える（前は「ほかの ほぉほぉ」の中で、私の年齢だけだった） */
+  { id: 'h-kirikae-table', t: '何歳で切り替わると、どうなるか', need: 'range', main: true,
+    calc(c) {
+      const { p, S, mk } = c;
+      const r = c.rOn ? c.r : 0;
+      if (p.kirikae.label === 'none') return null;
+      let cand = [45, 47, 50, 51, 55, 60, 65].filter(k => k > p.age && k < mk);
+      if (cand.length < 3) cand = [1, 3, 5, 10].map(d => p.age + d).filter(k => k < mk);
+      if (!cand.length) return null;
+      const sk = c.full ? (c.sk !== undefined ? c.sk : ROUGO.sakaime(p, S)) : null;
+      const who = p.kirikae.label === 'hitori' ? '一人暮らしになるのが' : '辞めるのが';
+      let top = '';
+      if (sk) {
+        if (sk.k != null && sk.k !== sk.lo && !cand.includes(sk.k)) cand = [...cand, sk.k].sort((a, b) => a - b);
+        top = sk.k === sk.lo ? `${who}何歳でも、NISA が増えなくても${mk}歳まで持ちます。`
+          : sk.k != null ? `${who}<b>${nw(`${sk.k}歳${esc(aiteTxt(p, sk.k))}から`)}</b>なら、NISA が増えなくても${mk}歳まで持ちます。`
+          : `${who}何歳でも、NISA が増えないと${mk}歳までは持ちません。`;
+        top = `<div style="margin-bottom:4px">${top}</div>`;
+      }
+      const head = `<tr><th>${esc(KSHORT[p.kirikae.label])}</th><th>NISA が増えない</th>${r > 0 ? `<th>年${r}%で増える</th>` : ''}<th>あといくら</th></tr>`;
+      const body = cand.map(k => {
+        const q = withP(p, x => { x.kirikae.age = k; });
+        const t0 = ROUGO.tsukiru(q, S, { r: 0 });
+        const tr = r > 0 ? ROUGO.tsukiru(q, S, {}) : null;
+        const a = ROUGO.atoIkura(q, S, { r: 0 });
+        return `<tr><td>${k}歳${esc(aiteTxt(p, k, true))}</td><td>${ks(t0, mk)}</td>${r > 0 ? `<td>${ks(tr, mk)}</td>` : ''}<td>${a == null ? '1億円超' : a ? man(a) : '足りる'}</td></tr>`;
+      }).join('');
+      return `${top}<table>${head}${body}</table><div class="cap">あといくら＝NISA が増えない場合に、いまの預金にいくら足せば${mk}歳まで持つか</div>`;
+    } },
+  { id: 'h-kirikae', t: '切り替わる年齢を1年ずらすと', need: 'full', main: true,
+    calc(c) {
+      const { p, S, mk, kk } = c;
+      if (p.kirikae.label === 'none' || kk == null) return null;
+      const lbl = KLABEL[p.kirikae.label];
+      const lines = [];
+      for (const d of [-1, 1]) {
+        const k = kk + d;
+        if (k <= p.age || k >= mk) continue;
+        lines.push(`${lbl}が1年${d < 0 ? 'はやい' : 'おそい'}と（${k}歳）${ARROW}${effect(c, withP(p, x => { x.kirikae.age = k; }))}`);
+      }
+      if (p.kirikae.label === 'yameru' && p.nenkin.mode === 'auto') {
+        const q = withP(p, x => { x.kirikae.age = kk + 1; });
+        const g = ROUGO.nenkin(q, S).gaku - ROUGO.nenkin(p, S).gaku;
+        lines.push(`1年長く働くと、年金が${nw(`月${yen(g)}`)}ふえます`);
+      }
+      return lines.length ? lines.join('<br>') : null;
+    } },
+  { id: 'h-delta', t: '月の支出を1万円変えると', need: 'full', main: true,
+    calc(c) {
+      const { p, m0 } = c;
+      if (!m0.rows.some(r => !r.tame)) return null;
+      return `1万円へらすと${ARROW}${effect(c, p, { delta: -10000 })}<br>1万円ふやすと${ARROW}${effect(c, p, { delta: 10000 })}`;
+    } },
+  { id: 'h-tsumitate', t: '積立は月いくら', need: 'full',
+    calc(c) {
+      const { p, S, mk, kk } = c;
+      const r = c.rOn ? c.r : 0;
+      if (kk == null || kk <= p.age) return null;
+      const t0 = ROUGO.tsumitateIkura(p, S, { r: 0 });
+      const tr = r > 0 ? ROUGO.tsumitateIkura(p, S, {}) : null;
+      const say = t => t == null ? '月100万円でも足りません' : t === 0 ? '積み立てなくても持ちます' : `月${yen(t)}`;
+      return `${KLABEL[p.kirikae.label]}の前の年まで、毎月同じ額を積み立てるなら${ARROW}<b>${nw(say(t0))}</b>で${mk}歳まで持ちます` +
+        (r > 0 ? `（NISA が年${r}%で増えれば ${nw(say(tr))}）` : '') +
+        '<div class="cap">預金と NISA の割合は、いまの「貯める額」の行と同じにしています。</div>';
+    } },
+  { id: 'h-nisa', t: 'NISA と預金の分け方（めやす）', need: 'full', main: true, ctlTop: true,
+    build(box, c) {
+      box.append(el('div', 'hint', '預金に置いておく年数（ふつうは10年）'));
+      box.append(pair(c.p.hoho, 'nensu', { min: 5, max: 20, unit: '年', w: 's', int: true, def: 10, aria: '預金に置く年数',
+        onchange: () => { save(); keepPlace(anchorEl(), () => updateHoho()); } }));
+    },
+    calc(c) {
+      const { p, S, m0, kk, age, mk } = c;
+      if (kk == null || kk <= age || kk >= mk) return null;
+      // 切り替わる年齢までに貯める額（年ごとに足した実際の額）
+      let z = 0;
+      for (const r of m0.rows) if (r.a < kk) z += r.tY + r.tN;
+      const pre = m0.rows.find(r => r.a === kk - 1);
+      if (!pre || (!(pre.nisa > 0) && !(z > 0))) return null;       // 貯めるお金が無い人には出さない
+      const N = Math.max(1, Math.round(isNum(p.hoho.nensu) ? p.hoho.nensu : 10));
+      const Y0 = pre.yokin, N0 = pre.nisa, B = Y0 + N0;
+      // 切り替わる年齢から N 年で使うお金（利回り0%の見通し）＝年金で足りないぶん＋保険料＋一時費用（−遺産）＋急な出費のそなえ（月の支出の6か月分）
+      let out = 0, isan = 0;
+      for (const r of m0.rows) if (r.a >= kk && r.a < kk + N) { out += r.sh + r.hk - r.nk + r.ic; isan += r.is; }
+      const first = m0.rows.find(r => r.a === kk);
+      const sonae = first ? first.sh / 2 : 0;
+      const need = Math.max(0, out - isan) + sonae, needNo = Math.max(0, out) + sonae;
+      // いまの予定で、NISA を取りくずしはじめる年（利回り0%なので、NISA が減る＝取りくずした年）
+      let tori = null;
+      for (let i = 1; i < m0.rows.length; i++) if (m0.rows[i].nisa < m0.rows[i - 1].nisa - 0.5) { tori = m0.rows[i].a; break; }
+      const L = KLABEL[p.kirikae.label];
+      const nisaRows = p.tameru.filter(x => x.oki === 'nisa' && num(x.gaku) > 0);
+      const start = num(p.nisa) > 0 ? age : (nisaRows.length ? Math.min(...nisaRows.map(x => isNum(x.kara) ? x.kara : age)) : null);
+      let h = '';   // 「くわしく」の中身。見えるのは下の答えの1行だけ（2026-10-14 UX レビュー「何年ぶん？割合？金融庁？……もう無理」）
+      // ご質問への答え：NISA のお金を、入れはじめてから何年後に使いはじめるか
+      if (tori != null && start != null) h += `いまの予定だと、NISA を取りくずしはじめるのは <b>${nw(tori + '歳')}</b>＝入れはじめてから <b>${nw((tori - start) + '年後')}</b>。<br>`;
+      else if (N0 > 0) h += `いまの予定だと、${mk}歳まで NISA は取りくずさずに済みます。<br>`;
+      h += `${esc(L)}の${kk}歳の時点で、預金 <b>${nw(man(Y0))}</b>・NISA <b>${nw(man(N0))}</b>（NISA が増えない見通し）。<br>`;
+      // 遺産のほうが多いときに「236万円 − 350万円 ＋ 52万円」と書くと、足し引きが合わないように読めるので、文で書く
+      const parts = !isan ? `年金で足りないぶんと一時費用 ${man(out)} ＋ 急な出費のそなえ ${man(sonae)}`
+        : out - isan < 0 ? `年金で足りないぶんと一時費用 ${man(Math.max(0, out))}は、遺産 ${man(isan)}でまかなえるので、急な出費のそなえ ${man(sonae)}だけ`
+        : `年金で足りないぶんと一時費用 ${man(out)} − 遺産 ${man(isan)} ＋ 急な出費のそなえ ${man(sonae)}`;
+      h += `${kk}歳から${N}年で使うお金は <b>${nw(man(need))}</b><span class="dim">（${parts}）</span><br>`;
+      // 貯める額のうち NISA に回す割合を w% にしたとき（ほぉほぉ「貯める額のうち、NISA に回す割合」と同じ計算）の、
+      // 切り替わる年齢の前の年の終わりの預金。w が大きいほど預金は減るので、使うお金以上残るいちばん大きい w を2分で探す
+      // （前は「その時点の残高のうち NISA にしてよい割合」を出していて、いまの預金や一時費用が混ざり、貯める額の割合とずれていた）
+      const yAt = w => { const q = ROUGO.zandaka(p, S, { r: 0, wari: w / 100 }).find(r => r.a === kk - 1); return q ? q.yokin : 0; };
+      const maxW = nd => {
+        if (yAt(0) < nd - 0.5) return null;
+        let lo = 0, hi = 100;
+        while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (yAt(mid) >= nd - 0.5) lo = mid; else hi = mid - 1; }
+        return lo;
+      };
+      const verdict = (nd, short) => B < nd
+        ? `預金と NISA を合わせても${nw(man(nd - B))}足りません${short ? '' : '。NISA の割合より先に、貯める額や支出を見直す段階です'}`
+        : Y0 < nd
+          ? `預金が${nw(man(nd - Y0))}足りません${short ? '' : (z > 0 && maxW(nd) != null
+            ? `。${kk}歳までに NISA から預金へ移しておくか、貯める額の預金の割合をふやすと、値下がりした年に NISA を売らずに済みます`
+            : `。${kk}歳までに NISA から預金へ移しておくと、値下がりした年に NISA を売らずに済みます（貯める額を全部預金にしても届きません）`)}`
+          : `預金で足りています${short ? '' : (N0 > 0 ? `。NISA のお金は、${kk}歳から${N}年のあいだ売らずに置いておける計算です` : '')}`;
+      const ans = `<b>${verdict(need, false)}。</b>`;
+      if (isan > 0) h += `遺産が入らなかった場合は ${nw(man(needNo))}${ARROW}${verdict(needNo, true)}。`;
+      if (B >= need && z > 0) {
+        const say = w => w == null ? '0%（全部預金にしても届かない）' : w >= 100 ? '100%（全部 NISA でも足りる）' : `${w}%まで`;
+        const wN = maxW(need);
+        h += `<br>貯める額の NISA の割合のめやす：<b>${nw(say(wN))}</b>` +
+          (isan > 0 ? `（遺産が入らなければ ${nw(say(maxW(needNo)))}）` : '') + `。いまは ${nisaNow(c)}%。` +
+          `<div class="cap">めやす＝${kk}歳の時点で、預金に${N}年ぶんのお金が残る、いちばん大きい割合です（${kk}歳までに貯める額ぜんぶを、この割合で分けた場合）。` +
+          '割合を変えた見通しは「ほかの ほぉほぉ」の「貯める額のうち、NISA に回す割合」で試せます。</div>';
+      }
+      h += '<div class="cap">「近いうちに使うお金は預金に、長く使わないお金ほど NISA に」という考え方で出しています。金融庁の資料では、毎月同じ額を国内外の株と債券に積み立てた場合、5年だと元本割れした時期があり、20年だとありませんでした（これから先も同じとは限りません）。何年ぶんにするかはスライダーで変えられます。これは「この前提ならこうなる」の数字で、どの割合にするかはご家族で決めることです。</div>';
+      return `${ans}<details class="kuwashiku" data-k="h-nisa"${kuwaOpen.has('h-nisa') ? ' open' : ''}><summary>くわしく（何歳でいくら・割合のめやす）</summary>${h}</details>`;
+    } },
+  { id: 'h-isan', t: '遺産が変わると', need: 'full', main: true,
+    calc(c) {
+      const { p, kk } = c;
+      const link = p.kirikae.label !== 'none';
+      const idx = p.isan.findIndex(x => (x.renkei && link ? kk : x.age) != null && num(x.gaku) > 0);
+      if (idx < 0) return null;
+      const x0 = p.isan[idx];
+      const age0 = x0.renkei && link ? kk : x0.age;
+      const late = withP(p, q => { q.isan[idx].renkei = false; q.isan[idx].age = age0 + 5; });
+      const none = withP(p, q => { q.isan.splice(idx, 1); });
+      const more = withP(p, q => { q.isan[idx].gaku = num(x0.gaku) + 1500000; });
+      return [`遺産が5年おそいと（${age0 + 5}歳）${ARROW}${effect(c, late)}`,
+        `遺産が150万円多いと${ARROW}${effect(c, more)}`,
+        `遺産がないと${ARROW}${effect(c, none)}`].join('<br>');
+    } },
+  { id: 'h-mirai', t: '辞めてからの国民年金', need: 'range', main: true,
+    calc(c) {
+      const { p, S, mk, kk, full } = c;
+      if (p.nenkin.mode !== 'auto' || p.kirikae.label !== 'yameru' || kk == null || kk >= 60) return null;
+      const rows = ['harau', 'menjo', 'minou'].map(kind => {
+        const q = withP(p, x => { x.nenkin.auto.mirai = [{ id: 'x', kara: null, made: 59, kind }]; });
+        const N = ROUGO.nenkin(q, S);
+        const t = full ? ks(ROUGO.tsukiru(q, S, { r: 0 }), mk) : '';
+        return `<tr><td>${KIND[kind]}</td><td>${N.tarinai > 0 ? '0円（資格なし）' : '月' + yen(N.gaku)}</td>${full ? `<td>${t}</td>` : ''}</tr>`;
+      }).join('');
+      return `<div>${kk}〜59歳を全部…</div><table><tr><th>どうする</th><th>年金</th>${full ? '<th>見通し</th>' : ''}</tr>${rows}</table>`;
+    } },
+  { id: 'h-rimawari', t: '利回りを変えると', need: 'full',
+    calc(c) {
+      const { p, S, mk, r } = c;
+      if (!hasNisa(p)) return null;
+      const list = [1, 3, 5, 7].filter(x => x !== r);
+      return list.map(x => `利回り${x}%${ARROW}${kekka(ROUGO.mikomi(p, S, { r: x }), mk)}`).join('<br>') +
+        `<div class="cap">NISA が増えない場合${c.rOn ? `と年${r}%で増える場合` : ''}は、上の結果の枠にあります。</div>`;
+    } },
+  { id: 'h-wari', t: '貯める額のうち、NISA に回す割合', need: 'full',
+    build(box, c) {
+      const { p } = c;
+      box.append(pair(p.hoho, 'wari', { min: 0, max: 100, step: 5, unit: '%', w: 's', int: true, def: 50, aria: 'NISAに回す割合',
+        onchange: () => { save(); keepPlace(anchorEl(), () => updateHoho()); } }));
+    },
+    calc(c) {
+      const { p, S, mk, r, kk } = c;
+      if (kk == null) return null;
+      let z = 0, n = 0;
+      for (const x of p.tameru) { const v = x.tani === 'nen' ? num(x.gaku) / 12 : num(x.gaku); z += v; if (x.oki === 'nisa') n += v; }
+      if (!(z > 0)) return null;                                  // 貯める額が0なら、割合は意味がない
+      const now = nisaNow(c) ?? Math.round(n / z * 100);
+      if (!isNum(p.hoho.wari)) {
+        // 動かすまでは、いまの割合のまま（結果の枠と同じ数字になる）。state には書かない
+        const box = document.querySelector('#h-wari .pair');
+        if (box) { box._range.value = now; if (document.activeElement !== box._num) box._num.value = String(now); }
+        return `いまの割合（NISA ${now}%）で、利回り${r}%なら${ARROW}${kekka(ROUGO.mikomi(p, S, {}), mk)}` +
+          '<div class="cap">スライダーを動かすと、割合を変えた場合の見通しになります。</div>';
+      }
+      const w = p.hoho.wari;
+      const m = ROUGO.mikomi(p, S, { wari: w / 100 });
+      return `NISA に${w}%・預金に${100 - w}%回すと（利回り${r}%）${ARROW}${kekka(m, mk)}` +
+        (r > 0 ? `<div class="cap">いまの割合は NISA ${now}% です。</div>` : '<div class="cap">利回りが0%なので、割合を変えても結果は同じです。</div>');
+    } },
+  { id: 'h-sagaru', t: 'NISA が下がったら', need: 'full',
+    build(box, c) {
+      const { p } = c;
+      const f1 = el('div', 'f');
+      f1.append(el('span', 'fl', '下がる年齢'), ctl(numInput(p.hoho, 'sagaruAge', { w: 's', int: true, aria: '下がる年齢', onchange: () => { save(); keepPlace(anchorEl(), () => updateHoho()); } }), '歳のはじめ'));
+      box.append(f1, pair(p.hoho, 'sagaruPct', { min: 10, max: 60, step: 10, unit: '%下がる', w: 's', int: true, def: 30, aria: '下がる割合',
+        onchange: () => { save(); keepPlace(anchorEl(), () => updateHoho()); } }));
+    },
+    calc(c) {
+      const { p, S, mk, r, kk } = c;
+      if (!hasNisa(p)) return null;
+      const age = isNum(p.hoho.sagaruAge) ? p.hoho.sagaruAge : (kk != null ? kk : p.age);
+      const pct = isNum(p.hoho.sagaruPct) ? p.hoho.sagaruPct : 30;
+      const m = ROUGO.mikomi(p, S, { sagaru: { age, pct } });
+      return `${age}歳のはじめに NISA が${pct}%下がったら（利回り${r}%）${ARROW}${kekka(m, mk)}` +
+        (isNum(p.hoho.sagaruAge) ? '' : `<div class="cap">年齢が空なので、${kk != null ? 'とりくずしを始める年' : 'いまの年'}で計算しています。</div>`);
+    } },
+  { id: 'h-kaishi', t: '年金を受け取りはじめる年齢', need: 'range',
+    calc(c) {
+      const { p, S, mk, full } = c;
+      if (p.nenkin.mode !== 'auto') return null;
+      if (ROUGO.nenkin(p, S).tarinai > 0) return null;
+      const now = ROUGO.nenkin(p, S).kaishi;
+      const list = [...new Set([60, 65, 70, 75, now])].sort((a, b) => a - b);
+      const rows = list.map(k => {
+        const q = withP(p, x => { x.nenkin.auto.kaishi = k; });
+        const g = ROUGO.nenkin(q, S).gaku;
+        const t = full ? ks(ROUGO.tsukiru(q, S, { r: 0 }), mk) : '';
+        const b = ROUGO.sonekiBunki(k);
+        return `<tr><td>${k}歳${k === now ? '（いま）' : ''}</td><td>月${yen(g)}</td><td>${b == null ? '—' : ageMonth(b)}</td>${full ? `<td>${t}</td>` : ''}</tr>`;
+      }).join('');
+      return `<table><tr><th>開始</th><th>月額</th><th>65歳と並ぶ</th>${full ? '<th>見通し</th>' : ''}</tr>${rows}</table>` +
+        '<div class="cap">「65歳と並ぶ」＝受け取りの合計が、65歳から受け取った場合と同じになる年齢。はやく始めるならそれより前、おそく始めるならそれより長生きで多くなります。</div>';
+    } },
+  { id: 'h-1nen', t: '国民年金を1年払うと', need: 'none',
+    calc(c) {
+      const { p, S } = c;
+      if (p.nenkin.mode !== 'auto') return null;
+      const cost = S.hoken * 12, gain = S.mangaku * 12 / 480 * 12;
+      return `1年ぶん${nw(yen(cost))}で、年金が年${nw(yen(gain))}ふえる${ARROW}${nw(ageMonth(cost / gain).replace('歳', '年'))}で元がとれます` +
+        '<div class="cap">65歳から受け取る場合。受け取りはじめてから、この年数より長生きすると得になります。</div>';
+    } },
+  { id: 'h-tsuinou', t: '追納すると', need: 'none',
+    calc(c) {
+      const { p, S } = c;
+      if (p.nenkin.mode !== 'auto') return null;
+      const t = ROUGO.tsuinou(p, S);
+      if (!t) return null;
+      const g = t.after - t.before;
+      return `猶予・免除のうち${t.nensu}年ぶんを追納すると、約${nw(man(t.cost))}で年金が${nw(`月${yen(g)}`)}ふえます` +
+        (g > 0 ? `（元がとれるのは約${nw(ageMonth(t.cost / (g * 12)).replace('歳', '年'))}）` : '') +
+        '<div class="cap">追納できるのは、いまから10年前までのぶんだけです（猶予を先に数えています）。額はいまの保険料での目安で、3年目からは少し上乗せがあります。</div>';
+    } },
+  { id: 'h-sepan', t: '折半をやめたら', need: 'full',
+    calc(c) {
+      const { p, kk } = c;
+      const s = p.shishutsu;
+      if (s.mode !== 'koumoku' || !s.items.some(it => it.sepan)) return null;
+      if (isNum(s.sepanYameru)) return `ずっと折半なら${ARROW}${effect(c, withP(p, x => { x.shishutsu.sepanYameru = null; }))}`;
+      const a = kk != null ? kk : p.age;
+      return `${a}歳から折半なしだと${ARROW}${effect(c, withP(p, x => { x.shishutsu.sepanYameru = a; }))}`;
+    } },
+];
+
+let hohoMoreOpen = false;
+function renderHoho() {
+  const box = $('hoho');
+  box.innerHTML = '';
+  const c = { p: cur() };
+  const mainBox = el('div', 'hoho-main');
+  const more = el('details'); more.id = 'hoho-more'; more.open = hohoMoreOpen;
+  more.addEventListener('toggle', () => { hohoMoreOpen = more.open; });
+  const sm = el('summary');
+  sm.innerHTML = '<div class="sumrow"><span class="t">ほかの ほぉほぉ</span><span class="note" id="hoho-more-n"></span></div>';
+  const list = el('div', 'hoho-list');
+  more.append(sm, list);
+  for (const h of HOHO) {
+    const it = el('div', 'hoho-item'); it.id = h.id;
+    it.append(el('div', 'h-t', h.t));
+    const hb = el('div', 'h-b');
+    // ctlTop … スライダーを見出しのすぐ下に置く（長い文と注釈の下だと、動かす所が見つけにくい）
+    if (h.build) { const cbox = el('div', 'h-ctl'); h.build(cbox, c); if (h.ctlTop) { cbox.style.margin = '0 0 6px'; it.append(cbox, hb); } else it.append(hb, cbox); }
+    else it.append(hb);
+    (h.main ? mainBox : list).append(it);
+  }
+  box.append(mainBox, more);
+}
+let lastCtx = null;
+/* 「くわしく」を開いているか（ほぉほぉは数字が変わるたびに中身を作り直すので、閉じないよう覚えておく・2026-10-14） */
+const kuwaOpen = new Set();
+$('hoho').addEventListener('toggle', e => {
+  const d = e.target;
+  if (d.matches && d.matches('details.kuwashiku')) { if (d.open) kuwaOpen.add(d.dataset.k); else kuwaOpen.delete(d.dataset.k); }
+}, true);
+function updateHoho(ctx) {
+  ctx = ctx || lastCtx;
+  if (!ctx) return;
+  let shown = 0, moreN = 0;
+  for (const h of HOHO) {
+    const it = $(h.id); if (!it) continue;
+    const ok = h.need === 'none' || (h.need === 'range' && ctx.range) || (h.need === 'full' && ctx.full);
+    let html = null;
+    if (ok) { try { html = h.calc(ctx); } catch (e) { html = null; } }
+    it.hidden = html == null;
+    if (html != null) { it.querySelector('.h-b').innerHTML = html; shown++; if (!h.main) moreN++; }
+  }
+  const more = $('hoho-more');
+  if (more) { more.hidden = moreN === 0; const n = $('hoho-more-n'); if (n) n.textContent = `${moreN}つ`; }
+  $('hoho-card').hidden = shown === 0;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   グラフ（SVG を自分で描く）
+   ════════════════════════════════════════════════════════════════════ */
+let chartData = null, tipAge = null, tableR = 0, chartEmpty = '';
+function niceStep(span, n) {
+  const raw = span / n, p10 = Math.pow(10, Math.floor(Math.log10(raw)));
+  const f = raw / p10;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p10;
+}
+function drawChart() {
+  const box = $('chart');
+  const leg = $('legend');
+  if (!chartData) { box.innerHTML = '<div id="chart-empty"></div>'; box.firstChild.textContent = chartEmpty || '年齢を入れると、ここにグラフが出ます。'; leg.innerHTML = ''; return; }
+  const { lines, age, mk, kk, klabel, events } = chartData;
+  const W = Math.max(280, box.clientWidth || 320);
+  const H = Math.round(Math.min(340, Math.max(230, W * 0.62)));
+  const L = 50, R = 14, T = 18, B = 60;
+  const pw = W - L - R, ph = H - T - B;
+  const vals = lines.flatMap(l => l.rows.map(r => r.total / 10000));
+  let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
+  if (hi - lo < 1) hi = lo + 1;
+  const step = niceStep(hi - lo, 4);
+  lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+  const x = a => L + (mk - 1 === age ? pw / 2 : (a - age) / (mk - 1 - age) * pw);
+  const y = v => T + (hi - v) / (hi - lo) * ph;
+  let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="年齢ごとの残高のグラフ">`;
+  for (let v = lo; v <= hi + 1e-9; v += step) {
+    const yy = y(v).toFixed(1);
+    s += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="${v === 0 ? 'rgba(236,232,244,0.55)' : 'rgba(255,255,255,0.07)'}" stroke-width="1"/>`;
+    s += `<text class="ax" x="${L - 6}" y="${(+yy + 4).toFixed(1)}" text-anchor="end">${comma(v)}${v === hi ? '万' : ''}</text>`;
+  }
+  const span = mk - 1 - age, xs = span <= 12 ? 2 : span <= 30 ? 5 : 10;
+  for (let a = Math.ceil(age / xs) * xs; a <= mk - 1; a += xs) {
+    s += `<text class="ax" x="${x(a).toFixed(1)}" y="${T + ph + 15}" text-anchor="middle">${a}</text>`;
+  }
+  s += `<text class="ax" x="${W - R}" y="${T + ph + 15}" text-anchor="end" dx="0" dy="0"></text>`;
+  if (kk != null && kk >= age && kk <= mk - 1) {
+    const xx = x(kk).toFixed(1);
+    s += `<line x1="${xx}" x2="${xx}" y1="${T}" y2="${T + ph}" stroke="rgba(184,160,216,0.6)" stroke-dasharray="4 4" stroke-width="1"/>`;
+    s += `<text class="lbl" x="${xx}" y="${T - 5}" text-anchor="${kk - age > span * 0.7 ? 'end' : 'start'}" dx="${kk - age > span * 0.7 ? -4 : 4}">${esc(klabel)} ${kk}歳</text>`;
+  }
+  // できごとの印（▲年金 ●遺産 ▼一時費用）
+  // 同じ年の印は縦に積む（横にずらすと、隣の年の印に見えるため）
+  const seen = {};
+  for (const e of events) {
+    if (e.a < age || e.a > mk - 1) continue;
+    const nth = seen[e.a] = (seen[e.a] || 0) + 1;
+    const xx = x(e.a), ey = T + ph + 28 + (nth - 1) * 10;
+    if (e.k === 'nenkin') s += `<path d="M${xx - 5},${ey + 4} L${xx + 5},${ey + 4} L${xx},${ey - 5} Z" fill="#c9c2da"/>`;
+    else if (e.k === 'isan') s += `<circle cx="${xx}" cy="${ey}" r="4.5" fill="#c9c2da"/>`;
+    else s += `<path d="M${xx - 4},${ey - 4} L${xx + 4},${ey - 4} L${xx},${ey + 4} Z" fill="rgba(201,194,218,0.65)"/>`;
+  }
+  // 線
+  const ends = [];
+  lines.forEach(l => {
+    if (!l.rows.length) return;
+    const d = l.rows.map((r, i) => `${i ? 'L' : 'M'}${x(r.a).toFixed(1)},${y(r.total / 10000).toFixed(1)}`).join('');
+    s += `<path d="${d}" fill="none" stroke="${l.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const last = l.rows[l.rows.length - 1];
+    ends.push({ y: y(last.total / 10000), l });
+    if (l.tsukiru != null) {
+      const r = l.rows.find(q => q.a === l.tsukiru);
+      if (r) {
+        const cx = x(r.a), cy = y(r.total / 10000);
+        s += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.5" fill="${l.color}" stroke="#0d0b14" stroke-width="2"/>`;
+        s += `<text class="lbl" x="${(cx - 7).toFixed(1)}" y="${(cy + 17).toFixed(1)}" text-anchor="end">${r.a}歳で尽きる</text>`;
+      }
+    }
+  });
+  // 線の終わりの名前（2本のときだけ・重なるなら少しずらす）
+  if (ends.length === 2) {
+    ends.sort((a, b) => a.y - b.y);
+    if (ends[1].y - ends[0].y < 14) { ends[0].y -= 7; ends[1].y += 7; }
+    for (const e of ends) {
+      // 尽きる点が右端の近くにあるときは、名前を線の終わりの下に置く（点の字とかぶらないように）
+      const below = e.l.tsukiru != null && x(e.l.tsukiru) > W - R - 110;
+      s += `<text class="lbl" x="${W - R}" y="${(below ? e.y + 17 : e.y - 8).toFixed(1)}" text-anchor="end">${esc(e.l.name)}</text>`;
+    }
+  }
+  s += `<line id="cross" x1="0" x2="0" y1="${T}" y2="${T + ph}" stroke="rgba(236,232,244,0.5)" stroke-width="1" visibility="hidden"/>`;
+  lines.forEach((l, i) => { s += `<circle id="dot${i}" r="4" fill="${l.color}" stroke="#0d0b14" stroke-width="2" visibility="hidden"/>`; });
+  s += `<rect id="hit" x="${L}" y="0" width="${pw}" height="${H}" fill="transparent"/>`;
+  s += '</svg><div id="tip"></div>';
+  box.innerHTML = s;
+  const keys = [];
+  if (events.some(e => e.k === 'nenkin')) keys.push('▲ 年金');
+  if (events.some(e => e.k === 'isan')) keys.push('● 遺産');
+  if (events.some(e => e.k === 'ichiji')) keys.push('▼ 一時費用');
+  leg.innerHTML = (lines.length > 1 ? lines.map(l => `<span><span class="sw" style="background:${l.color}"></span>${esc(l.name)}</span>`).join('') : '') +
+    keys.map(k => `<span>${k}</span>`).join('') + '<span>点を押すと、その年の数字</span>';
+  const svg = box.querySelector('svg'), hit = box.querySelector('#hit');
+  const show = a => {
+    tipAge = a;
+    document.body.classList.add('tip-on');
+    const rows = lines.map(l => l.rows.find(r => r.a === a));
+    if (!rows[0]) return hide();
+    const xx = x(a);
+    const cross = svg.querySelector('#cross');
+    cross.setAttribute('x1', xx); cross.setAttribute('x2', xx); cross.setAttribute('visibility', 'visible');
+    rows.forEach((r, i) => {
+      const d = svg.querySelector('#dot' + i);
+      if (r) { d.setAttribute('cx', xx); d.setAttribute('cy', y(r.total / 10000)); d.setAttribute('visibility', 'visible'); }
+    });
+    const r0 = rows[0];
+    let h = `<b>${a}歳の年の終わり</b>`;
+    rows.forEach((r, i) => { if (r) h += `<br><span class="sw" style="background:${lines[i].color}"></span>${esc(lines[i].name)}：${man(r.total)}`; });
+    if (kk === a) h += `<br>${esc(klabel)}`;
+    if (r0.nk && !(lines[0].rows.find(q => q.a === a - 1) || {}).nk) h += '<br>年金を受け取りはじめる';
+    if (r0.is) h += `<br>遺産 ＋${man(r0.is)}`;
+    if (r0.ic) h += `<br>一時費用 −${man(r0.ic)}` + (r0.ichijiNames.length ? `（${esc(r0.ichijiNames.join('・'))}${r0.icHoka ? 'ほか' : ''}）` : '');
+    const tip = box.querySelector('#tip');
+    tip.innerHTML = h; tip.style.display = 'block';
+    const tw = tip.offsetWidth;
+    tip.style.left = Math.max(0, Math.min(W - tw, xx + (xx > W / 2 ? -tw - 12 : 12))) + 'px';
+    tip.style.top = (T + 4) + 'px';
+  };
+  const hide = () => {
+    tipAge = null;
+    document.body.classList.remove('tip-on');
+    const t = box.querySelector('#tip'); if (t) t.style.display = 'none';
+    svg.querySelector('#cross').setAttribute('visibility', 'hidden');
+    lines.forEach((l, i) => svg.querySelector('#dot' + i).setAttribute('visibility', 'hidden'));
+  };
+  const at = ev => {
+    const rc = svg.getBoundingClientRect();
+    const px = (ev.clientX - rc.left) * (W / rc.width);
+    return Math.max(age, Math.min(mk - 1, Math.round(age + (px - L) / pw * (mk - 1 - age))));
+  };
+  hit.addEventListener('pointermove', ev => show(at(ev)));
+  hit.addEventListener('pointerdown', ev => show(at(ev)));
+  hit.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse') hide(); });
+  if (tipAge != null) show(tipAge);
+}
+document.addEventListener('pointerdown', ev => {
+  if (tipAge != null && !ev.target.closest('#chart')) { tipAge = null; document.body.classList.remove('tip-on'); drawChart(); }
+});
+let rsz = 0;
+window.addEventListener('resize', () => { clearTimeout(rsz); rsz = setTimeout(drawChart, 120); });
+
+/* ════════════════════════════════════════════════════════════════════
+   結果を書き直す
+   ════════════════════════════════════════════════════════════════════ */
+function setMini(t) { $('mini').innerHTML = t; stick(); }
+/* 年ごとの表の見出しを貼りつける高さ＝ヘッダー＋（出ていれば）短い帯 */
+function stick() {
+  const m = $('mini'), on = getComputedStyle(m).display !== 'none';
+  const h = document.querySelector('header').getBoundingClientRect().height + (on ? m.getBoundingClientRect().height : 0);
+  document.documentElement.style.setProperty('--stick', Math.round(h) + 'px');
+}
+window.addEventListener('resize', () => stick());
+function update() {
+  keepPlace(anchorEl(), updateCore);
+  // 比べる相手が「入れてください」だったときは、はじめて計算できた結果を比べる相手にする
+  if (LIVE.target && LIVE.before && LIVE.before.ask && lastRes && !lastRes.ask) LIVE.before = lastRes;
+  if (LIVE.target) liveShow();
+}
+function updateCore() {
+  const p = cur(), S = ROUGO.seido(state.seido);
+  const rg = ROUGO.range(p);
+  const kk = ROUGO.kirikae(p);
+  const needK = p.kirikae.label !== 'none' && kk == null;
+  const r = num(p.r);
+  const main = $('r-main');
+  ['r-cap', 'r-sub', 'r-rate', 'r-tsuki', 'r-ato', 'r-kara', 'r-warn', 'r-shiki', 'r-choose'].forEach(id => { $(id).innerHTML = ''; });
+  // 月の支出が空のまま答えを出すと、支出0円の「持ちます」になる（足したばかりの人で緑の答えが出ていた）ので、先に聞く
+  const sh = p.shishutsu;
+  const noSh = sh.mode === 'koumoku' ? !(sh.items || []).some(it => isNum(it.gaku)) : !isNum(sh.goukei);
+
+  // 入力の枠の中で、数字によって変わる所
+  refreshForm(p, S, kk);
+
+  // kara＝空の欄を0円として計算している知らせ（答えの前提なので、答えが出ているときはたたまずに出す）。warn＝そのほか
+  const warn = [], kara = [];
+  if (!isNum(p.yokin) || !isNum(p.nisa)) {
+    const e = [!isNum(p.yokin) ? '預金' : '', !isNum(p.nisa) ? 'NISA' : ''].filter(Boolean).join('・');
+    kara.push(`いまの${e}が空なので、0円で計算しています（「基本」の枠で入れると、もっと正確になります）。`);
+  }
+  const N = ROUGO.nenkin(p, S);
+  if (!N.direct && N.tarinai > 0) {
+    warn.push(`受給資格の10年に、あと${ageMonth(N.tarinai / 12).replace('歳', '年')}足りません（老齢年金は0円で計算しています）。`);
+  }
+  if (rg) {
+    let maxN = 0;
+    for (let a = rg[0]; a < rg[1]; a++) {
+      let s = 0;
+      for (const x of p.tameru) {
+        const kara = isNum(x.kara) ? x.kara : rg[0], made = isNum(x.made) ? x.made : 200;
+        if (x.oki === 'nisa' && kara <= a && a <= made) s += x.tani === 'nen' ? num(x.gaku) / 12 : num(x.gaku);
+      }
+      maxN = Math.max(maxN, s);
+    }
+    if (maxN > 100000) warn.push('NISA のつみたて投資枠は、1年に120万円（月10万円）までです。');
+  }
+  const noAge = [...p.ichiji.filter(x => (x.kind || '1kai') === '1kai' && !isNum(x.age) && num(x.gaku)).map(x => x.name || '一時費用'),
+    ...p.isan.filter(x => !(x.renkei && p.kirikae.label !== 'none') && !isNum(x.age) && num(x.gaku)).map(x => x.name || '遺産')];
+  if (noAge.length) kara.push(`年が決まっていない出費・遺産は、まだ入っていません：${noAge.join('・')}（年齢を入れると入ります）`);
+  if (p.nenkin.mode !== 'auto' && !isNum(p.nenkin.direct.gaku)) kara.push('年金の月額が空なので、0円で計算しています（「年金」の枠で入れられます）。');
+  if (p.nenkin.mode !== 'auto' && (p.nenkin.direct.kawaru || []).some(x => isNum(x.age) !== isNum(x.gaku))) {
+    kara.push('年金の「○歳から変わる」で、年齢か月額が空の行は、まだ入っていません（両方入れると入ります）。');
+  }
+  // 計算の前提が崩れる組み合わせ（数字としては間違っていないが、黙っていると変な見通しになる所）
+  if (rg && kk != null && p.kirikae.label !== 'none') {
+    const L = KLABEL[p.kirikae.label];
+    if (kk <= rg[0]) warn.push(`${L}（${kk}歳）が、いまの年齢（${rg[0]}歳）より前なので、はじめから「とりくずす時期」として計算しています。`);
+    else if (kk >= rg[1]) warn.push(`${L}（${kk}歳）が、目標の年齢（${rg[1]}歳）より後なので、最後まで「貯める時期」として計算しています。`);
+    if (p.kirikae.label === 'yameru' && N.kaishi < kk && kk < rg[1]) {
+      warn.push(`年金を受け取りはじめる年齢（${N.kaishi}歳）が、辞める年齢（${kk}歳）より前です。働いているあいだの年金は、貯める額に入っているものとして計算しています（年金としては足していません）。`);
+    }
+  }
+
+  // 足りない欄があるあいだは、結果の枠の中にその欄を出し、グラフと表は隠す（初めて開いたときに行き止まりにしない）
+  const ask = !rg ? (!isNum(p.age) ? 'age' : 'mokuhyo') : needK ? 'kirikae' : noSh ? 'shishutsu' : '';
+  needBox(ask, p);
+  $('chart-card').hidden = !!ask;
+  $('table-box').hidden = !!ask;
+  // 聞いているあいだは、知らせは全部たたむ（結果の枠を「入れてください」の欄だけにする）
+  if (!rg) {
+    main.className = 'ask';
+    main.textContent = !isNum(p.age) ? 'いまの年齢を入れてください' : '目標の年齢は、いまの年齢より上にしてください';
+    chartEmpty = main.textContent; chartData = null; drawChart(); $('table-wrap').innerHTML = ''; $('table-note').textContent = '';
+    setMini(main.textContent);
+    lastRes = { ask: main.textContent };
+    lastCtx = { p, S, range: false, full: false, fresh: true, mk: 0, r, kk };
+    updateHoho(lastCtx);
+    $('r-warn').innerHTML = warn.map(w => `<div class="warn">${esc(w)}</div>`).join('') + kara.map(w => `<div class="soft">${esc(w)}</div>`).join('');
+    moreTitle(warn.length);
+    return;
+  }
+  const [age, mk] = rg;
+
+  if (needK || noSh) {
+    const what = needK ? KLABEL[p.kirikae.label] : '月の支出';
+    main.className = 'ask';
+    main.textContent = `${what}を入れてください`;
+    chartEmpty = main.textContent; chartData = null; drawChart(); $('table-wrap').innerHTML = ''; $('table-note').textContent = '';
+    setMini(main.textContent);
+    lastRes = { ask: `${what}を入れると出ます` };
+    lastCtx = { p, S, range: true, full: false, fresh: true, mk, r, rOn: r > 0 && hasNisa(p), kk, age };
+    updateHoho(lastCtx);
+    $('r-warn').innerHTML = warn.map(w => `<div class="warn">${esc(w)}</div>`).join('') + kara.map(w => `<div class="soft">${esc(w)}</div>`).join('');
+    moreTitle(warn.length);
+    shiki(p, S, N, kk);
+    if (needK && !noSh) chooseBox(p, S, kk, ROUGO.sakaime(p, S));
+    return;
+  }
+
+  const m0 = ROUGO.mikomi(p, S, { r: 0 });
+  // 利回りの2本目は、NISA があって利回りが0%より大きいときだけ（無ければ同じ数字を2回出すことになる）
+  const rOn = r > 0 && hasNisa(p);
+  const mS = rOn ? ROUGO.mikomi(p, S, {}) : null;
+  // 頭に「何の答えか」を1行。答えは1文で、NISA が増えない場合だと文の中で言う（前は小さい前置きと、すぐ下の「利回り3%なら持ちます」が
+  // 並んで「結局どっち？」になっていた・2026-10-14 UX レビュー）
+  $('r-cap').textContent = kirikaeCtx(p, kk);
+  if (m0.tsukiru == null) {
+    main.className = 'ok';
+    main.textContent = `${mk}歳まで持ちます（残り${man(m0.saigo)}）`;
+  } else {
+    main.className = 'bad';
+    main.textContent = `${rOn ? 'NISA が増えないと、' : ''}${m0.tsukiru}歳の年に、お金が尽きます`;
+    if (m0.back != null) {
+      const why = m0.rows.find(q => q.a === m0.back);
+      $('r-sub').textContent = `そのあと${m0.back}歳で${why && why.is ? '遺産' : 'お金'}が入り、` +
+        (m0.again != null ? `${m0.again}歳の年まで持ちます。` : `${mk}歳まで持ちます。`);
+    }
+  }
+  let mini = `<b>${esc(main.textContent)}</b>`;
+  if (mS) {
+    const t = mS.tsukiru == null ? `${mk}歳まで持ちます（残り${man(mS.saigo)}）` : `${mS.tsukiru}歳の年に尽きます`;
+    if (m0.tsukiru == null) {
+      $('r-rate').innerHTML = `<span class="dim">NISA が増えなくても持ちます（年${r}%で増えれば、残り${man(mS.saigo)}）</span>`;
+    } else {
+      const s2 = `NISA が年${r}%で増え${mS.tsukiru == null ? 'れば' : 'ても'}、`;
+      $('r-rate').innerHTML = `${s2}<b>${t}</b>`;
+      mini += `<br>${s2}${esc(t)}`;
+    }
+  } else if (hasNisa(p)) {
+    $('r-rate').innerHTML = '<span class="dim">NISA は増えない計算です（利回り0%）。</span>';
+  }
+  setMini(mini);
+  const t0 = ROUGO.tsukiIkura(p, S, { r: 0 }), tS = mS ? ROUGO.tsukiIkura(p, S, {}) : null;
+  // 「暮らしは月○円まで」は「今月いくら使っていい？」と取り違えやすく、いまの暮らしとも比べられなかったので、
+  // いつの生活費かと、いまの見込みより月いくら多く使える（減らせば持つ）かで言う（2026-10-14 UX レビュー）
+  const ato = p.kirikae.label === 'hitori' && kk != null ? '一人暮らしになってからの生活費' : p.kirikae.label === 'yameru' && kk != null ? '辞めてからの生活費' : '生活費';
+  let tl;
+  if (t0 == null) tl = `支出を0円にしても、${mk}歳までは持ちません`;
+  else if (t0 === 0) tl = `${mk}歳まで持たせるには、暮らしに回せるお金がありません`;
+  else {
+    const d = ROUGO.sabun(p, S, { r: 0 });
+    const now = ROUGO.shishutsuAt(p, kk != null ? Math.max(kk, age) : age);
+    tl = d === 0 ? `${ato}は、いまの見込み（月${yen(now)}）で、<b>ちょうど${mk}歳まで持ちます</b>`
+      : `${ato}は、いまの見込み（月${yen(now)}）より ` + (d >= 1000000 ? '<b>月100万円以上多く使えます</b>' : d > 0 ? `<b>月${yen(d)}多く使えます</b>` : `<b>月${yen(-d)}減らすと</b>、${mk}歳まで持ちます`);
+    tl += ` <span class="dim">（ずっと同じ額なら月${yen(t0)}まで${mS ? `・年${r}%で増えれば${tS == null ? '支出0円でも持ちません' : tS === 0 ? '回せるお金なし' : `月${yen(tS)}まで`}` : ''}）</span>`;
+  }
+  $('r-tsuki').innerHTML = tl;
+  const a0 = ROUGO.atoIkura(p, S, { r: 0 }), aS = mS ? ROUGO.atoIkura(p, S, {}) : null;
+  const sayA = a => a == null ? '1億円を足しても持ちません' : a === 0 ? 'いまのお金で足ります' : `あと${man(a)}`;
+  if (a0 !== 0) {
+    $('r-ato').innerHTML = a0 == null ? sayA(a0)
+      : `<b>あと${man(a0)}</b>あれば、${mk}歳まで持ちます` + (mS ? ` <span class="dim">（NISA が年${r}%で増えれば${aS === 0 ? '足ります' : sayA(aS)}）</span>` : '');
+  } else if (mS == null || aS === 0) {
+    $('r-ato').innerHTML = '<span class="dim">いまのお金と見通しで足ります。</span>';
+  }
+  $('r-kara').innerHTML = kara.map(w => `<div class="soft">${esc(w)}</div>`).join('');
+  $('r-warn').innerHTML = warn.map(w => `<div class="warn">${esc(w)}</div>`).join('');
+  moreTitle(warn.length);
+  shiki(p, S, N, kk);
+  const skAll = ROUGO.sakaime(p, S);
+  chooseBox(p, S, kk, skAll);
+  lastRes = { tsukiru: m0.tsukiru, saigo: m0.saigo, ato: a0, mk, rOn, r, tS: mS ? mS.tsukiru : null };
+
+  // グラフ
+  const events = [];
+  if (N.kaishi >= age && N.kaishi < mk) {
+    const kaishiA = kk != null ? Math.max(N.kaishi, kk) : N.kaishi;
+    events.push({ a: kaishiA, k: 'nenkin' });
+  }
+  for (const q of m0.rows) {
+    if (q.is) events.push({ a: q.a, k: 'isan' });
+    if (q.ichijiNames.length) events.push({ a: q.a, k: 'ichiji' });
+  }
+  const lines = [{ name: 'NISA が増えない', color: 'var(--s1)', rows: m0.rows, tsukiru: m0.tsukiru }];
+  if (mS) lines.push({ name: `NISA が年${r}%で増える`, color: 'var(--s2)', rows: mS.rows, tsukiru: mS.tsukiru });
+  lines.forEach(l => { l.color = l.color === 'var(--s1)' ? '#9085e9' : '#d55181'; });
+  chartData = { lines, age, mk, kk, klabel: KSHORT[p.kirikae.label], events };
+  drawChart();
+
+  // 表（見出しと同じ利回り0%を先に出す。利回りがあるときは切り替えられる）
+  if (!mS) tableR = 0;
+  const useS = mS && tableR > 0;
+  const rowsT = useS ? mS.rows : m0.rows;
+  $('table-note').textContent = useS ? `NISA が年${r}%で増える計算` : 'NISA が増えない計算';
+  const f1 = v => (Math.round(v / 1000) / 10).toFixed(1);
+  let t = mS ? `<div class="chips" style="margin-bottom:6px"><button type="button" class="chip${useS ? '' : ' on'}" data-tr="0">NISA が増えない</button>` +
+    `<button type="button" class="chip${useS ? ' on' : ''}" data-tr="1">年${r}%で増える</button></div>` : '';
+  t += '<div class="cap" style="margin:0 0 4px">単位は万円（その年の終わりの残高）</div><table><tr><th>年齢</th><th>入る</th><th>出る</th><th>預金</th><th>NISA</th><th>合計</th></tr>';
+  for (const q of rowsT) {
+    const inn = q.tY + q.tN + q.nk + q.is, outv = q.sh + q.hk + q.ic;
+    t += `<tr class="${q.tame ? 'tame' : ''}"><td>${q.a}</td><td>${f1(inn)}</td><td>${f1(outv)}</td><td class="${q.yokin < -0.5 ? 'neg' : ''}">${f1(q.yokin)}</td><td>${f1(q.nisa)}</td><td class="${q.total < -0.5 ? 'neg' : ''}">${f1(q.total)}</td></tr>`;
+  }
+  t += '</table><div class="cap">年齢が色つきの行は貯める時期（入る＝貯める額）。預金が足りない年は NISA から出しています。</div>';
+  $('table-wrap').innerHTML = t;
+  $('table-wrap').querySelectorAll('[data-tr]').forEach(b => b.addEventListener('click', () => { tableR = +b.dataset.tr; update(); }));
+
+  lastCtx = { p, S, range: true, full: true, fresh: true, mk, r, rOn, kk, age, m0, a0, sk: skAll };
+  updateHoho(lastCtx);
+}
+
+/* 押しくらべ：切り替わる年齢を選ぶボタン（その年齢の答えつき）と、境目の1文（2026-10-14 UX レビュー）。
+   前は年齢が空のときだけボタンが出て、押すと消えた。答えの表も「ほぉほぉ」の奥にあり、私の年齢で書いてあった */
+function chooseBox(p, S, kk, sk) {
+  const box = $('r-choose');
+  box.innerHTML = '';
+  const L = p.kirikae.label;
+  if (L === 'none') return;
+  if (!sk) return;
+  const { lo, mk, t } = sk;
+  const who = L === 'hitori' ? '一人暮らしになるのが' : '辞めるのが';
+  const msg = el('div', 'sk');
+  msg.innerHTML = sk.k === lo ? `${who}何歳でも、NISA が増えなくても${mk}歳まで持ちます。`
+    : sk.k != null ? `${who}<b>${nw(`${sk.k}歳${esc(aiteTxt(p, sk.k))}から`)}</b>なら、NISA が増えなくても${mk}歳まで持ちます。`
+    : `${who}何歳でも、NISA が増えないと${mk}歳までは持ちません。`;
+  let cand = [45, 50, 55, 60, 65];
+  if (sk.k != null && sk.k !== lo) cand.push(sk.k);
+  if (kk != null) cand.push(kk);
+  cand = [...new Set(cand)].filter(v => v >= lo && v < mk).sort((a, b) => a - b);
+  const row = el('div', 'chips');
+  for (const v of cand) {
+    const b = el('button', `chip kchip ${t[v] == null ? 'ok' : 'bad'}${v === kk ? ' on' : ''}`);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(v === kk));
+    b.dataset.k = v;
+    b.innerHTML = `<span class="c1">${v}歳${esc(aiteTxt(p, v, true))}</span><span class="c2">${t[v] == null ? '足りる' : `${t[v]}歳で尽きる`}</span>`;
+    b.addEventListener('click', () => { p.kirikae.age = v; changed(); });
+    row.append(b);
+  }
+  box.append(msg, row, el('div', 'cap', `押すと、その${KLABEL[L]}で計算し直します（NISA が増えない場合の答え）。`));
+}
+
+function moreTitle(nWarn) {
+  $('r-more-t').textContent = nWarn ? `注意 ${nWarn}つ・年金の内訳` : '年金の内訳';
+  $('r-more').classList.toggle('has-warn', nWarn > 0);
+}
+function shiki(p, S, N, kk) {
+  const box = $('r-shiki');
+  if (N.direct) {
+    let t = `年金 月${yen(N.gaku)}（${N.kaishi}歳から・直接入力）` + (N.kawaru || []).map(x => `→${x.age}歳から月${yen(num(x.gaku))}`).join('');
+    if (p.kirikae.label === 'hitori' && kk != null && N.kaishi < kk) {
+      t += `。一人暮らしになる${kk}歳までは「貯める額」の中に入っているので、年金として足すのは${kk}歳からです`;
+    }
+    box.innerHTML = esc(t) + (p.nenkin.direct.memo ? `<div>${esc(p.nenkin.direct.memo)}</div>` : '');
+    return;
+  }
+  if (N.tarinai > 0) { box.textContent = `年金＝受給資格が足りないので、その他の${yen(N.sonota)}だけ`; return; }
+  const top = `年金 月${yen(N.gaku)}（基礎 ${yen(N.kiso * N.ritsu)}＋厚生 ${yen(N.kousei * N.ritsu)}${N.sonota ? '＋その他 ' + yen(N.sonota) : ''}）`;
+  let f = `基礎＝${trimNum(N.kisoM)}月/480×${comma(S.mangaku)}＝${yen(N.kiso)}、厚生＝${trimNum(N.nenshu / 12 / 10000)}万×${S.rate}/1000×${N.kouseiM}月÷12＝${yen(N.kousei)}`;
+  if (N.ritsu !== 1) f += `、${N.kaishi}歳から受け取るので×${trimNum(N.ritsu * 100)}%`;
+  if (N.sonota) f += `、その他${yen(N.sonota)}`;
+  box.innerHTML = `${esc(top)}<details class="shiki"><summary>計算式</summary>${esc(f)}</details>`;
+}
+
+/* 入力の枠のうち、ほかの数字しだいで変わる所（切り替わる年齢に連動する遺産・猶予・合計・枠の見出し） */
+function refreshForm(p, S, kk) {
+  for (const i of document.querySelectorAll('#form input.n')) {
+    if (i !== document.activeElement && !i.classList.contains('bad') && i._show) i._show();
+  }
+  for (const box of document.querySelectorAll('#form .pair.dyn')) {
+    const [lo, hi, df] = box._bounds();
+    if (+box._range.min !== lo || +box._range.max !== hi) { box._range.min = lo; box._range.max = hi; box._sync(); }
+  }
+  // 結果の枠のボタンで年齢を選んだとき、下のスライダーが薄いまま違う所を指していた（2026-10-14 UX レビュー）。触っていない組は毎回そろえる
+  for (const box of document.querySelectorAll('#form .pair')) if (box._sync && !box.contains(document.activeElement)) box._sync();
+  for (const t of (refs.renkei || [])) t.textContent = kk != null ? `${KLABEL[p.kirikae.label]}（${kk}歳）と同じ年に入ります` : `${KLABEL[p.kirikae.label]}を入れると、その年に入ります`;
+  if (p.nenkin.mode === 'auto') {
+    const A = p.nenkin.auto;
+    for (const s of (refs.miraiSel || [])) {
+      const r = A.mirai[+s.dataset.idx]; if (!r) continue;
+      const kara = isNum(r.kara) ? r.kara : (kk != null && p.kirikae.label === 'yameru' ? kk : p.age);
+      const op = [...s.options].find(o => o.value === 'yuuyo');
+      if (op) { op.disabled = isNum(kara) && kara >= 50; op.textContent = op.disabled ? '猶予（50歳からは使えません）' : '猶予'; }
+    }
+    // 行が重なっていたら知らせる（計算は上の行が先に使われる＝ROUGO.miraiKind と同じ見方）
+    const base = kk != null ? kk : p.age;
+    const span = A.mirai.map(r => [isNum(r.kara) ? r.kara : base, isNum(r.made) ? r.made : 59]);
+    (refs.miraiOv || []).forEach((h, i) => {
+      const [a, z] = span[i] || [];
+      const hit = isNum(a) && a <= z && span.slice(0, i).some(([c, d]) => isNum(c) && a <= d && c <= z && c <= d);
+      h.textContent = hit ? '上の行と重なっています（重なった年は、上の行で計算します）。' : '';
+    });
+    if (refs.yuuyoNote) {
+      const straddle = A.mirai.some(r => r.kind === 'yuuyo' && (isNum(r.made) ? r.made : 59) >= 50);
+      refs.yuuyoNote.textContent = straddle ? '50歳からの年は猶予が使えないので、払わない扱いで計算しています。' : '';
+    }
+    if (refs.minou && isNum(p.age)) {
+      const rest = Math.max(0, p.age - 20) - num(A.noufu) - num(A.kousei) - num(A.menjo) - num(A.yuuyo);
+      refs.minou.textContent = `払っていない年数（20歳から、いまの年齢までの残り）：${trimNum(Math.max(0, rest))}年`;
+    }
+  }
+  if (refs.shTotal && p.shishutsu.mode === 'koumoku') {
+    let s = 0;
+    for (const it of p.shishutsu.items) s += it.sepan ? num(it.gaku) / 2 : num(it.gaku);
+    refs.shTotal.innerHTML = `合計 <b>月${yen(s)}</b>（折半のぶんは半額）`;
+  }
+  const N = ROUGO.nenkin(p, S);
+  const set = (id, t) => { const e = $('sn-' + id); if (e) e.textContent = t; };
+  set('kihon', isNum(p.age) ? `${p.age}歳・目標${isNum(p.mokuhyo) ? p.mokuhyo + '歳' : '（空）'}` : '年齢が空');
+  set('kirikae', p.kirikae.label === 'none' ? 'なし' : kk != null ? `${KSHORT[p.kirikae.label]} ${kk}歳${aiteTxt(p, kk, true)}` : 'まだ入れていません');
+  {
+    const refA = kk != null ? kk - 1 : (isNum(p.age) ? p.age : 0);
+    let tot = 0;
+    for (const x of p.tameru) {
+      const kara = isNum(x.kara) ? x.kara : p.age, made = isNum(x.made) ? x.made : 200;
+      if (kara <= refA && refA <= made) tot += x.tani === 'nen' ? num(x.gaku) / 12 : num(x.gaku);
+    }
+    set('tameru', p.kirikae.label === 'none' ? `使わない・利回り${num(p.r)}%` : `月${yen(tot)}（${refA}歳）・利回り${num(p.r)}%`);
+  }
+  set('nenkin', N.tarinai > 0 ? '受給資格が足りない' : `月${yen(N.gaku)}・${N.kaishi}歳から${N.kawaru && N.kawaru.some(x => isNum(x.gaku)) ? '・途中で変わる' : ''}`);
+  set('isan', p.isan.length ? man(p.isan.reduce((s, x) => s + num(x.gaku), 0)) : 'なし');
+  set('ichiji', p.ichiji.length ? `${p.ichiji.length}件` : 'なし');
+  {
+    const s = p.shishutsu;
+    let m = num(s.goukei);
+    if (s.mode === 'koumoku') { m = 0; for (const it of s.items) m += it.sepan ? num(it.gaku) / 2 : num(it.gaku); }
+    set('shishutsu', `月${yen(m)}`);
+  }
+  set('seido', '令和8年度');
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   触っている欄のすぐ上の吹き出し（#live）
+   ════════════════════════════════════════════════════════════════════ */
+let lastRes = null;
+const LIVE = { target: null, before: null, hideT: 0, rangeMsg: '', secId: null, idx: -1 };
+const liveOn = () => window.innerWidth < 900;
+function liveBlock(t) { return t.closest('.f.col') || t.closest('.itemrow, .rl, .rw-h, .f') || t; }
+function diffMan(d, ato) { return `${man(Math.abs(d))}${ato ? (d > 0 ? '多く要る' : '少なくて済む') : (d > 0 ? 'ふえる' : 'へる')}`; }
+function liveText() {
+  if (LIVE.rangeMsg) return [LIVE.rangeMsg, 'この数字では、まだ計算しません', 'ask'];
+  const now = lastRes, b = LIVE.before;
+  if (!now) return ['', '', 'ask'];
+  if (now.ask) return [now.ask, '', 'ask'];
+  const ok = b && !b.ask;
+  let l1 = kekkaShort(now.tsukiru, now.mk) + (ok && b.tsukiru !== now.tsukiru ? diffText(b.tsukiru, now.tsukiru) : '');
+  let l2;
+  if (now.tsukiru == null) {
+    l2 = `残り${man(now.saigo)}`;
+    if (ok && b.tsukiru == null && Math.round(b.saigo / 10000) !== Math.round(now.saigo / 10000)) {
+      l2 = `残り ${man(b.saigo)} → ${man(now.saigo)}（${diffMan(now.saigo - b.saigo)}）`;
+    }
+  } else {
+    l2 = now.ato == null ? '1億円を足しても持ちません' : `あと${man(now.ato)}あれば${now.mk}歳まで持つ`;
+    if (ok && b.tsukiru != null && isNum(b.ato) && isNum(now.ato) && b.ato !== now.ato) {
+      l2 = `あと ${man(b.ato)} → ${man(now.ato)}（${diffMan(now.ato - b.ato, true)}）`;
+    }
+  }
+  if (now.rOn) l2 += `・NISA が年${now.r}%で増えれば${kekkaShort(now.tS, now.mk)}`;
+  return [l1, l2, now.tsukiru == null ? 'ok' : 'bad'];
+}
+function liveShow() {
+  const lv = $('live');
+  const t = LIVE.target;
+  if (!liveOn() || !t || !document.contains(t)) { lv.classList.remove('on'); document.body.classList.remove('live-on'); return; }
+  const [l1, l2, cls] = liveText();
+  const a = lv.querySelector('.lv1'), c = lv.querySelector('.lv2');
+  a.textContent = l1; a.className = 'lv1 ' + cls; c.textContent = l2;
+  const box = liveBlock(t).getBoundingClientRect();
+  const hb = document.querySelector('header').getBoundingClientRect().bottom;
+  let top = box.top - 58 - 6;
+  if (top < hb + 4) top = box.bottom + 6;        // 上に余地がなければ、行の下へ
+  lv.style.top = (top + window.scrollY) + 'px';
+  lv.classList.add('on'); document.body.classList.add('live-on');
+}
+function liveHide(ms) {
+  clearTimeout(LIVE.hideT);
+  LIVE.hideT = setTimeout(() => {
+    $('live').classList.remove('on'); document.body.classList.remove('live-on');
+    LIVE.target = null; LIVE.before = null; LIVE.rangeMsg = '';
+  }, ms);
+}
+function liveStart(t, ms, fresh) {
+  clearTimeout(LIVE.hideT);
+  if (fresh || LIVE.target !== t || !LIVE.before) LIVE.before = lastRes;   // この欄を触りはじめた時点の結果
+  LIVE.target = t;
+  const sec = t.closest('details.sec');
+  LIVE.secId = sec ? sec.id : null;
+  LIVE.idx = sec ? [...sec.querySelectorAll('input, select, button')].indexOf(t) : -1;
+  liveShow();
+  if (ms) liveHide(ms);
+}
+/* 枠を作り直すと、触っていた部品は消えるので、同じ枠の同じ番目の部品に付け直す */
+function liveRefind() {
+  if (!LIVE.target || document.contains(LIVE.target) || !LIVE.secId) return;
+  const s = $(LIVE.secId);
+  if (!s) { LIVE.target = null; return; }
+  const all = [...s.querySelectorAll('input, select, button')];
+  LIVE.target = all[LIVE.idx] || all[all.length - 1] || null;
+}
+document.addEventListener('focusin', e => {
+  const t = e.target;
+  if (t.matches && t.matches('#form input.n')) liveStart(t, 0, LIVE.target !== t);
+}, true);
+document.addEventListener('focusout', e => { if (e.target === LIVE.target && LIVE.target.matches('input.n')) liveHide(150); }, true);
+document.addEventListener('pointerdown', e => {
+  const t = e.target;
+  if (t.matches && t.matches('#form input[type=range]')) liveStart(t, 0, true);
+}, true);
+for (const ev of ['pointerup', 'pointercancel']) {
+  document.addEventListener(ev, () => { if (LIVE.target && LIVE.target.type === 'range') liveHide(1500); }, true);
+}
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.matches && t.matches('#form select, #form input[type=checkbox]')) liveStart(t, 2000, true);
+}, true);
+document.addEventListener('click', e => {
+  const t = e.target.closest && e.target.closest('#form .chip, #form button.b, #form .x');
+  if (t) liveStart(t, 2000, true);
+}, true);
+
+/* 結果の枠の中に、足りない欄を出す。打っている最中に消さないよう、欄を離れるまで残す */
+let needKind = '', needP = null;
+function needBox(kind, p) {
+  const box = $('r-need');
+  // 欄は、作ったときの人（のデータの入れ物）につながっている。タブを移った・読み込んだ（同じ id でも入れ物は新しい）ときは、
+  // 同じ種類でも、打っている最中でも作り直す（前は前の人・読み込む前のデータに入っていた）
+  if (needP === p && box.contains(document.activeElement)) return;   // 同じ人に打っている最中は作り直さない
+  if (!kind) { box.innerHTML = ''; needKind = ''; needP = null; return; }
+  if (needKind === kind && needP === p && box.firstChild) return;
+  needKind = kind; needP = p;
+  box.innerHTML = '';
+  if (kind === 'age') {
+    box.append(field('いまの年齢', numInput(p, 'age', { w: 's', int: true, aria: 'いまの年齢（結果の枠）' }), '歳'));
+  } else if (kind === 'mokuhyo') {
+    box.append(field('目標の年齢（何歳まで持たせたいか）', numInput(p, 'mokuhyo', { w: 's', int: true, aria: '目標の年齢（結果の枠）' }), '歳'));
+  } else if (kind === 'shishutsu') {
+    const s = p.shishutsu;
+    if (s.mode === 'koumoku') {
+      box.append(el('div', 'hint', '「月の支出」の枠で、項目ごとの金額を入れてください。'));
+    } else {
+      box.append(field('月の支出（合計）', numInput(s, 'goukei', { aria: '月の支出の合計（結果の枠）' }), '円'));
+      box.append(chips([[50000, 'カツカツ5万'], [55000, '絞って5.5万'], [80000, '普通8万']], v => { s.goukei = v; box.innerHTML = ''; needKind = ''; changed(); }));
+      box.append(el('div', 'hint', 'とりくずす時期の月の支出です。あとから「月の支出」の枠で、項目ごとにも入れられます。'));
+    }
+  } else {
+    const L = KLABEL[p.kirikae.label];
+    const bk = () => { const lo = isNum(p.age) ? Math.round(p.age) + 1 : 20, hi = isNum(p.mokuhyo) ? Math.round(p.mokuhyo) - 1 : 100; return [lo, Math.max(lo, hi)]; };
+    box.append(field(L, numInput(p.kirikae, 'age', { w: 's', int: true, aria: `${L}（結果の枠）`, bounds: bk }), '歳'));
+    box.append(el('div', 'hint', 'あとから「切り替わる年齢」の枠のスライダーでも動かせます。'));
+  }
+}
+/* 結果の枠の中の欄から離れたら、次の計算で片づける（1回きりにすると、中のボタンへ移ったときに見張りが外れる） */
+$('r-need').addEventListener('focusout', () => setTimeout(() => {
+  if (!$('r-need').contains(document.activeElement)) { needKind = '__'; changed(); }
+}, 0));
+
+/* ════════════════════════════════════════════════════════════════════
+   書き出す・読み込む・プリセット
+   ════════════════════════════════════════════════════════════════════ */
+function ioSay(t, bad) { const m = $('io-msg'); m.textContent = t; m.style.color = bad ? 'var(--late)' : 'var(--good)'; }
+$('io-out').addEventListener('click', () => {
+  const ta = $('io-text');
+  ta.value = JSON.stringify({ v: 1, people: state.people, active: state.active, seido: state.seido });
+  // 読むだけにしてから選ぶと、iPhone でもキーボードが出ない。選んだまま「コピー」を頼む
+  let copied = false;
+  ta.readOnly = true;
+  try { ta.focus({ preventScroll: true }); ta.setSelectionRange(0, ta.value.length); copied = document.execCommand('copy'); } catch (e) { copied = false; }
+  ta.blur(); ta.readOnly = false;
+  ioSay(copied ? '書き出して、コピーしました。ほかの端末の「読み込む」の欄に貼ってください。'
+               : '書き出しました。欄を長押しして全部えらび、コピーしてください。');
+});
+$('io-in').addEventListener('click', () => {
+  const s = fromJson($('io-text').value.trim());
+  if (!s) { ioSay('読み取れませんでした。いまの数字はそのままです。', true); return; }
+  if (!confirm(`${s.people.length}人ぶんを読み込みます。いまの数字は消えます。よろしいですか？`)) return;
+  state = s; save(); renderAll();
+  ioSay('読み込みました。');
+});
+$('preset-go').addEventListener('click', () => {
+  const v = $('preset-sel').value;
+  if (!confirm(`「${cur().name || 'このタブ'}」の数字が消えて、プリセットに置き換わります。よろしいですか？`)) return;
+  const p = v === 'mihon_b' ? mihonB() : mihonA();
+  state.people[state.active] = p;
+  save(); renderAll();
+  ioSay('プリセットを読み込みました。');
+});
+
+/* 数字を入れる／グラフ・表／ほぉほぉ（スマホの幅だけ。開くたびに「数字を入れる」から） */
+function setView(v) {
+  document.body.dataset.view = v;
+  $('spacer').style.height = '0px';
+  for (const b of document.querySelectorAll('#views button')) b.setAttribute('aria-selected', String(b.dataset.view === v));
+  if (v === 'graph') drawChart();              // 隠れていたあいだは幅が測れないので、出したときに描き直す
+  const nav = $('views'), hb = document.querySelector('header').getBoundingClientRect().bottom;
+  if (nav.getBoundingClientRect().top < hb) window.scrollBy(0, nav.getBoundingClientRect().top - hb - 8);
+}
+for (const b of document.querySelectorAll('#views button')) b.addEventListener('click', () => setView(b.dataset.view));
+
+function renderAll() {
+  $('spacer').style.height = '0px';
+  renderTabs();
+  renderForm();
+  renderHoho();
+  update();
+}
+
+/* 結果の枠が画面の外へ出たら、ヘッダーの下に短く出す */
+if ('IntersectionObserver' in window) {
+  new IntersectionObserver(es => {
+    for (const e of es) $('mini').classList.toggle('on', !e.isIntersecting && e.boundingClientRect.top < 0);
+    stick();
+  }).observe($('result'));
+}
+
+/* ファイルをダブルクリックして開いたときは、極へ戻る道が無いので出さない */
+if (location.protocol === 'file:') $('back').style.display = 'none';
+
+let firstTime = false;
+try { firstTime = !localStorage.getItem(KEY); } catch (e) { firstTime = true; }
+state = loadState();
+setView('in');
+$('howto').open = firstTime;                    // 初めて開いたときだけ、使い方を開いておく
+renderAll();
+if (firstTime) save();
+
+/* 投資信託ランキングのくわしい面の「このくらい下がったら」から来たとき（住所の #sagaru=40）。
+   いま開いている人の「NISA が下がったら」の割合を、その数字（荒さの2倍を10%きざみにしたもの）に合わせて、
+   「ほぉほぉ」のその欄を開いて見せる。合わせたことと元の数字を帯で知らせ、「元に戻す」で戻せる。
+   住所の # は、読んだらすぐ消す（読み直しで、戻したあとにもう一度合わせないため）。 */
+(function fromToushin() {
+  const m = location.hash.match(/^#sagaru=(\d{2})$/);
+  if (!m) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  const pct = +m[1];
+  if (![10, 20, 30, 40, 50, 60].includes(pct)) return;
+  const p = cur();
+  const before = isNum(p.hoho.sagaruPct) ? p.hoho.sagaruPct : 30;
+  p.hoho.sagaruPct = pct;
+  save();
+  hohoMoreOpen = true;
+  renderAll();
+  setView('hoho');
+  const bar = $('from-toushin');
+  const msg = el('div', 'msg');
+  msg.append(el('b', null, '投資信託ランキングから'), document.createTextNode(
+    `：${p.name || 'この人'}の「NISA が下がったら」を ${pct}% に合わせました` + (before !== pct ? `（元は ${before}%）` : '') + '。' +
+    (hasNisa(p) ? '' : 'この人は NISA の額が入っていないので、計算は出ません（「貯める額」の置き場所を NISA にすると出ます）。')));
+  const undo = el('button', null, before !== pct ? `元の ${before}% に戻す` : 'とじる');
+  undo.type = 'button';
+  undo.addEventListener('click', () => {
+    if (before !== pct) { p.hoho.sagaruPct = before; save(); renderAll(); }
+    bar.hidden = true;
+  });
+  bar.replaceChildren(msg, undo);
+  bar.hidden = false;
+  const it = $('h-sagaru');
+  if (it && !it.hidden) requestAnimationFrame(() => it.scrollIntoView({ block: 'center' }));
+})();
+</script>
+</body>
+</html>

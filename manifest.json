@@ -1,0 +1,19 @@
+{
+  "name": "クロード極",
+  "short_name": "クロード極",
+  "lang": "ja",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0b14",
+  "theme_color": "#0d0b14",
+  "icons": [
+    {
+      "src": "/icon.png?v=4",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

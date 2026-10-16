@@ -1,0 +1,10 @@
+# 会話・記憶・手帳・体調の記録・送ったファイルは、ぜんぶ data/ に入る（公開しない）
+data/
+.env
+models/
+__pycache__/
+*.log
+# 投資信託の取り込み結果・控え（公開しない）
+toushin/data/
+*.db
+*.sqlite

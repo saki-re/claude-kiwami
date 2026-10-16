@@ -1,0 +1,2004 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>投資信託ランキング</title>
+<style>
+:root{
+  --bg0:#0b0d1f; --bg1:#171a40; --card:#1b1e38; --card2:#232748; --card3:#2d3260; --line:#2b2f52; --axis:#3a3f68;
+  --ink:#ffffff; --ink2:#c9cbe0; --mute:#9497b8;
+  --pos:#3987e5; --neg:#e66767;
+  --t3:#3987e5; --t6:#d95926; --t12:#199e70; --t36:#c98500;
+  --accent:#b9a5ff; --heart:#ff8fb3; --star:#e8c15a;
+  --fs:15px; --fs-s:12.5px; --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg0);color:var(--ink);
+  font-family:"Hiragino Maru Gothic ProN","Zen Maru Gothic","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+  font-size:var(--fs);line-height:1.5;-webkit-text-size-adjust:100%}
+body{min-height:100vh;background:
+  radial-gradient(900px 420px at 12% -8%,#2a2f6e 0%,transparent 60%),
+  radial-gradient(700px 380px at 96% 0%,#3b2a63 0%,transparent 55%),
+  linear-gradient(var(--bg0),var(--bg0));background-attachment:fixed;overflow-x:hidden}
+.wrap{width:100%;max-width:1180px;margin:0 auto;padding:12px 12px 80px}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.tag{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10.5px;letter-spacing:.2em;color:var(--accent)}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;border-radius:var(--r);
+  border:1px solid transparent;
+  background:linear-gradient(var(--card),var(--card)) padding-box,linear-gradient(120deg,#7aa2ff,#c8a2ff,#ff9ecf) border-box}
+.top h1{margin:0;font-size:19px;font-weight:700;letter-spacing:.04em}
+.top .sub{color:var(--ink2);font-size:var(--fs-s)}
+.top .grow{flex:1 1 160px;min-width:0}
+.btn{min-height:42px;padding:8px 16px;border-radius:999px;border:1px solid var(--axis);background:var(--card2);
+  color:var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;font-weight:600}
+.btn.main{border-color:transparent;background:linear-gradient(120deg,#5d7dff,#a67bff);color:#fff}
+.btn:active{transform:scale(.98)}
+.banner{margin-top:10px;padding:12px 14px;border-radius:var(--r);background:var(--card2);border:1px solid var(--axis);
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.banner.bad{border-color:var(--neg)}
+.banner .msg{flex:1 1 200px;min-width:0;font-weight:600}
+/* タブは同じ幅で並べる（iPhone の幅では1行・文字を大きくして狭くなったら2段に折り返す。右端で切れない） */
+.tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(48px,1fr));gap:4px;margin-top:12px}
+.tab{min-width:0;min-height:42px;padding:6px 2px;border-radius:999px;border:1px solid var(--line);background:var(--card);
+  color:var(--ink2);font-weight:600;font-size:14px;white-space:nowrap}
+@media (min-width:600px){
+  .tabs{display:flex;gap:6px}
+  .tab{flex:0 0 auto;padding:6px 16px;font-size:15px}
+}
+.tab[aria-pressed="true"]{background:#ffffff;color:#14162e;border-color:#ffffff}
+.filters{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.chip{min-height:40px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink2);
+  display:inline-flex;align-items:center;gap:6px}
+.chip[aria-pressed="true"]{border-color:var(--accent);color:var(--ink);background:var(--card2)}
+.chip .sw{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+.search{flex:1 1 150px;min-width:0;min-height:40px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);
+  background:var(--card);font-size:16px}
+.search::placeholder{color:var(--mute)}
+.avgbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.avgbar .lbl{color:var(--mute);font-size:var(--fs-s)}
+.note{margin-top:10px;color:var(--ink2);font-size:var(--fs-s)}
+.cols{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-top:10px;align-items:start}
+.list{background:var(--card);border-radius:var(--r);border:1px solid var(--line);overflow:hidden}
+.row{display:grid;grid-template-columns:30px 40px minmax(0,1fr);gap:2px 6px;align-items:start;padding:12px 12px 12px 6px;
+  border-bottom:1px solid var(--line);cursor:pointer}
+.row:last-child{border-bottom:0}
+.row.on{background:var(--card2)}
+.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.rk{text-align:center;font-weight:700;color:var(--ink2);font-variant-numeric:tabular-nums;padding-top:9px}
+.heart{width:40px;height:40px;border:0;background:transparent;color:var(--mute);font-size:18px;border-radius:50%;flex:0 0 auto}
+.heart[aria-pressed="true"]{color:var(--heart)}
+/* 「取る」の印（データを取りに行きたいファンド。♡＝お気に入りとは別）：♡の下に小さく */
+.marks{display:flex;flex-direction:column;align-items:center}
+.pbar .marks{flex-direction:row;flex:0 0 auto}
+.pick{width:40px;min-height:40px;border:0;background:transparent;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.pick span{display:inline-block;padding:1px 6px;border-radius:999px;border:1px solid var(--axis);color:var(--mute);font-size:11px;font-weight:700}
+.pick[aria-pressed="true"] span{background:var(--accent);border-color:var(--accent);color:#14162e}
+.chunks{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.nm{font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;word-break:break-all;padding-top:8px}
+.meta{color:var(--mute);font-size:var(--fs-s);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meta .st{color:var(--star);letter-spacing:.05em}
+.line{margin-top:2px;font-variant-numeric:tabular-nums}
+.line b{font-size:16px}
+.line .up{color:#7fb6f5}
+.line .down{color:#f39a9a}
+/* 4つの期間の帯：いま見ている期間の箱だけ塗り、ほかは枠だけ（手引き1-3：面と線で差を付ける） */
+.cells{grid-column:1 / -1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:8px}
+.cell{border:1px solid var(--line);border-radius:9px;padding:5px 7px;min-width:0;font-variant-numeric:tabular-nums}
+.cell.on{background:var(--card3);border-color:var(--accent)}
+.cell .k{font-size:11px;color:var(--mute);display:flex;align-items:center;gap:5px;white-space:nowrap}
+.cell .k i{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.cell .a{font-weight:700;font-size:14px;white-space:nowrap}
+.cell .a.out{color:var(--mute);font-weight:600}
+.cell .b{font-size:11.5px;color:var(--ink2);white-space:nowrap}
+.mv{font-size:11px;font-weight:700;margin-left:3px}
+.mv.up{color:#7fb6f5}
+.mv.down{color:#f39a9a}
+.riskgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.risk{border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.risk .t{font-weight:700;margin-bottom:4px}
+.risk .k{color:var(--mute);font-size:11.5px}
+.risk .v{font-weight:700;font-size:16px;font-variant-numeric:tabular-nums}
+.risk .w{font-size:12px;color:var(--ink2);margin-left:4px;font-weight:400}
+.empty{padding:28px 18px;text-align:center;color:var(--ink2)}
+.empty .btn{margin-top:12px}
+.detail{background:var(--card);border-radius:var(--r);border:1px solid var(--line);padding:0 16px 16px;min-width:0}
+.detail h2{margin:4px 0 0;font-size:17px;word-break:break-all}
+.detail .co{color:var(--mute);font-size:var(--fs-s)}
+/* 面の上に貼りつく帯：左に戻る、真ん中に名前、右に ♡ */
+.pbar{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:8px;margin:0 -16px;padding:8px 12px;
+  background:var(--card);border-bottom:1px solid var(--line)}
+.pbar .ttl{flex:1 1 auto;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.back{flex:0 0 auto;min-height:44px;padding:0 14px 0 10px;border-radius:999px;border:1px solid var(--axis);background:var(--card2);
+  font-weight:600;display:inline-flex;align-items:center;gap:2px}
+.back span{font-size:20px;line-height:1;margin-top:-2px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin-top:12px}
+.stat{background:var(--card2);border-radius:10px;padding:8px 10px;min-width:0}
+.stat .k{color:var(--mute);font-size:11px}
+.stat .v{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.detail .cells{margin-top:12px}
+.detail .cell{padding:8px 9px}
+.detail .cell .a{font-size:15px;white-space:normal}
+.big{margin-top:12px;font-size:16px}
+.big b{font-size:19px}
+.hint{margin-top:10px;color:var(--ink2);font-size:var(--fs-s)}
+.hint a,.note a{color:var(--accent)}
+.sect{margin-top:16px}
+.sect h3{margin:0 0 8px;font-size:var(--fs-s);color:var(--mute);font-weight:400;letter-spacing:.08em}
+.chart{position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none;margin-top:6px}
+.chart svg{display:block;width:100%;height:auto}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;color:var(--ink2);font-size:var(--fs-s)}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.tip{position:absolute;top:4px;pointer-events:none;background:#0d0f22;border:1px solid var(--axis);border-radius:10px;
+  padding:6px 10px;font-size:var(--fs-s);min-width:110px;z-index:2}
+.tip b{font-variant-numeric:tabular-nums}
+.tip .d{color:var(--mute)}
+.tip i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.range{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;align-items:center;margin-top:8px;
+  color:var(--ink2);font-size:var(--fs-s)}
+.range input{width:100%;min-height:40px;accent-color:var(--accent)}
+.links{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.sheet{position:fixed;inset:0;background:#0b0d1f;z-index:20;overflow-y:auto;overscroll-behavior:contain;padding:0 14px 24px}
+.sheet .in{width:100%;max-width:720px;margin:0 auto}
+.sheet .pbar{margin:0 -14px 8px;background:#0b0d1f}
+.board{display:grid;gap:8px;margin-top:12px}
+.brow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r);padding:10px 12px}
+.brow .t{font-weight:700;flex:0 0 58px}
+.brow .s{flex:1 1 140px;min-width:0;color:var(--ink2);font-size:var(--fs-s)}
+.brow .s b{color:var(--ink);font-size:var(--fs);word-break:break-all}
+details.how{margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:4px 14px 14px}
+details.how summary{min-height:44px;display:flex;align-items:center;font-weight:600;cursor:pointer}
+.sheet ol{padding-left:20px;margin:6px 0;color:var(--ink2)}
+.sheet li{margin:6px 0}
+textarea.code{width:100%;height:96px;font-size:16px;font-family:ui-monospace,Menlo,Consolas,monospace;border-radius:10px;
+  border:1px solid var(--axis);background:#0d0f22;padding:8px;word-break:break-all}
+textarea.paste{height:56px;font-family:inherit;border-style:dashed}
+textarea.paste::placeholder{color:var(--mute)}
+.nudge{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:16px;background:#070817}
+.nudge .card{width:100%;max-width:420px;border-radius:var(--r);padding:20px 18px;border:1px solid transparent;
+  background:linear-gradient(var(--card),var(--card)) padding-box,linear-gradient(120deg,#7aa2ff,#c8a2ff,#ff9ecf) border-box;
+  box-shadow:0 12px 40px #000}
+.nudge h2{margin:6px 0 8px;font-size:18px}
+.nudge p{margin:0 0 16px;color:var(--ink2)}
+.nudge .row2{display:flex;gap:8px;flex-wrap:wrap}
+/* ---- 初心者向けに足したもの（2026-10-01）---- */
+.btn.icon{width:42px;min-width:42px;padding:0;font-size:17px}
+.chipsrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:1 1 480px;min-width:0}
+.meta .dn{color:#f39a9a;font-weight:700}
+.meta .stay{color:#9cc4f5;font-weight:700}
+.filt-on{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;color:var(--accent);font-size:var(--fs-s);font-weight:600}
+.filt-on .btn{min-height:40px;padding:4px 14px;font-size:var(--fs-s)}
+.avgbar{gap:6px}
+.avgbar .chip{padding:6px 10px}
+.linkish{border:0;background:none;color:var(--accent);padding:0 0 0 4px;font:inherit;text-decoration:underline;cursor:pointer}
+.dist-note{margin-top:6px;color:var(--ink)}
+.near{display:flex;flex-direction:column;gap:6px;margin-top:8px;flex:1 1 100%}
+.near .chip{width:100%;justify-content:flex-start;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:block;text-align:left}
+.viewbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.viewbar .grow{flex:1 1 auto}
+.seg{display:inline-flex;padding:3px;border-radius:999px;background:var(--card);border:1px solid var(--line)}
+.seg button{min-height:40px;min-width:58px;padding:4px 14px;border:0;border-radius:999px;background:transparent;color:var(--ink2);font-weight:600}
+.seg button[aria-pressed="true"]{background:linear-gradient(120deg,#5d7dff,#a67bff);color:#fff}
+.list.plain{background:transparent;border:0;overflow:visible}
+.badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;line-height:1.5;
+  border:1px solid var(--axis);color:var(--ink2);background:var(--card2)}
+.badge.warn{border-color:#c98500;color:#f3c66b;background:rgba(201,133,0,.13)}
+.badge.bad{border-color:#e66767;color:#f5a3a3;background:rgba(230,103,103,.13)}
+.badge.good{border-color:#199e70;color:#7fdcb5;background:rgba(25,158,112,.13)}
+.badge.info{border-color:#3987e5;color:#9cc4f5;background:rgba(57,135,229,.13)}
+.stat.wide{grid-column:1 / -1}
+.stat.wide .v{white-space:normal}
+.gauge{position:relative;height:8px;border-radius:999px;margin:8px 2px 6px;opacity:.9;
+  background:linear-gradient(90deg,#3d4270 0 20%,#5b5f9c 20% 40%,#8a82cc 40% 70%,#c4b5ff 70% 100%)}
+.gauge i{position:absolute;top:-5px;width:4px;height:18px;border-radius:2px;background:#fff;box-shadow:0 0 0 2px var(--card);transform:translateX(-50%)}
+.bridge{margin-top:10px}
+.yen{background:linear-gradient(135deg,rgba(93,125,255,.16),rgba(166,123,255,.10));border:1px solid var(--axis);border-radius:var(--r);padding:6px 14px 12px}
+.yen .yrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 10px;align-items:baseline;padding:8px 0;border-bottom:1px dashed var(--axis)}
+.yen .yk{color:var(--ink2);font-size:var(--fs-s)}
+.yen .yv{font-weight:800;font-size:16px;text-align:right;font-variant-numeric:tabular-nums}
+.yen .ys{grid-column:1 / -1;color:var(--mute);font-size:11.5px}
+.yen .foot{margin-top:8px;color:var(--mute);font-size:11.5px}
+.hold{border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;background:var(--card2)}
+.hold .k{color:var(--mute);font-size:var(--fs-s)}
+.hbig{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+.hbig.up,.mtab td.up,table.grid td.up{color:#7fb6f5}
+.hbig.down,.mtab td.down,table.grid td.down{color:#f39a9a}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:8px}
+.form label{display:flex;flex-direction:column;gap:4px;color:var(--ink2);font-size:var(--fs-s)}
+.form input{min-height:44px;padding:6px 12px;border-radius:10px;border:1px solid var(--axis);background:#0d0f22;font-size:16px;width:100%;min-width:0}
+.mtab{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+.mtab th,.mtab td{padding:7px 4px;border-bottom:1px solid var(--line);text-align:right}
+.mtab th{color:var(--mute);font-weight:400;font-size:11.5px}
+.mtab th:first-child,.mtab td:first-child{text-align:left}
+.mates{display:grid;gap:6px}
+.mate{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:9px 12px;border-radius:10px;
+  border:1px solid var(--line);background:var(--card2);text-align:left;width:100%;min-height:44px}
+.mate.me{border-color:var(--accent);background:var(--card3)}
+.mate .mn{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mate .mf{font-weight:800;font-variant-numeric:tabular-nums}
+.mate .ms{grid-column:1 / -1;color:var(--mute);font-size:11.5px}
+.feebar{grid-column:1 / -1;height:5px;border-radius:999px;background:var(--line);overflow:hidden}
+.feebar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#5d7dff,#ff8fb3)}
+.tablewrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r);overscroll-behavior-x:contain}
+table.grid{border-collapse:separate;border-spacing:0;width:100%;min-width:960px;font-size:13.5px;font-variant-numeric:tabular-nums}
+table.grid th,table.grid td{padding:8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+table.grid thead th{background:var(--card2);font-weight:600;color:var(--ink2)}
+table.grid th button{min-height:40px;border:0;background:transparent;padding:0 2px;font-weight:600;color:inherit;white-space:nowrap}
+table.grid th[aria-sort] button{color:var(--ink)}
+table.grid .nm2{position:sticky;left:0;z-index:1;background:var(--card);text-align:left;white-space:normal;min-width:150px;max-width:210px;
+  box-shadow:1px 0 0 var(--line)}
+table.grid thead .nm2{background:var(--card2)}
+table.grid .nm2 .n{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:600;word-break:break-all}
+table.grid .nm2 .sub{color:var(--mute);font-size:11px}
+table.grid tbody tr{cursor:pointer}
+table.grid tbody tr.on td,table.grid tbody tr:hover td{background:var(--card2)}
+table.grid td.na{color:var(--mute)}
+table.grid .no{text-align:center;color:var(--ink2)}
+.tnote{margin-top:8px}
+.print-head{display:none}
+.mapbox{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.mapbox svg{display:block;width:100%;height:auto}
+.mapbox .pt{cursor:pointer;outline:none}
+.legend i.dot{width:10px;height:10px;border-radius:50%}
+.legend i.dash{width:16px;height:0;border-top:2px dashed var(--ink2);border-radius:0}
+.mapcard{margin-top:10px;border:1px solid var(--accent);border-radius:12px;padding:10px 12px;background:var(--card2);
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.mapcard .s{flex:1 1 200px;min-width:0}
+.help{display:grid;gap:10px;margin-top:10px}
+.hcard{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:var(--r);padding:12px 14px}
+.hcard.key{border-left-color:var(--heart);background:linear-gradient(135deg,rgba(255,143,179,.10),var(--card) 60%)}
+.hcard h4{margin:0 0 4px;font-size:15px}
+.hcard p{margin:6px 0;color:var(--ink2);font-size:14px}
+.hcard .where{margin-top:8px;color:var(--mute);font-size:12px}
+.hcard .btn{margin-top:6px}
+.mvsec{margin-top:16px}
+.mvgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.mvbox{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:8px 12px}
+.mvbox h4{margin:4px 0;font-size:13px;color:var(--ink2);font-weight:600}
+.mvrow{display:flex;gap:8px;align-items:center;min-height:44px;border-top:1px solid var(--line);cursor:pointer}
+.mvbox h4 + .mvrow{border-top:0}
+.mvrow.off{cursor:default;color:var(--ink2)}
+.mvrow .d{flex:0 0 46px;font-weight:800;font-variant-numeric:tabular-nums}
+.mvrow .d.up{color:#7fb6f5}
+.mvrow .d.down{color:#f39a9a}
+.mvrow .n{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mvrow .r{flex:0 0 auto;color:var(--mute);font-size:12px}
+/* 今月ぶんをまとめて取る（おまかせ）：取り込みの面のいちばん上 */
+.sect.chain{border:1px solid transparent;border-radius:var(--r);padding:12px 14px;
+  background:linear-gradient(var(--card),var(--card)) padding-box,linear-gradient(120deg,#7aa2ff,#c8a2ff,#ff9ecf) border-box}
+.sect.chain h3{font-size:16px;color:var(--ink);font-weight:700;letter-spacing:0}
+.chain-go{width:100%;margin-top:10px;min-height:48px;font-size:16px}
+/* 絞り込み：iPhone の幅では、名前でさがす欄を1行、ボタンは横に送る1行（折り返して何段にもならないように） */
+@media (max-width:599px){
+  .filters .search{flex:1 1 100%}
+  .chipsrow{flex:1 1 100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -12px;padding:2px 12px;overscroll-behavior-x:contain}
+  .chipsrow::-webkit-scrollbar{display:none}
+  .chipsrow .chip{flex:0 0 auto;white-space:nowrap}
+}
+/* 表を印刷する（パソコン）：表だけを白い紙に */
+@media print{
+  html,body{background:#fff !important;color:#000 !important}
+  .top,.tabs,.filters,.avgbar,.viewbar,.banner,.detail,.sheet,.nudge,.note,.tnote{display:none !important}
+  .wrap{max-width:none;padding:0}
+  .cols{display:block}
+  .print-head{display:block;font-size:11pt;margin:0 0 6px}
+  .tablewrap{overflow:visible;border:0;background:#fff}
+  table.grid{min-width:0;font-size:9pt}
+  table.grid th,table.grid td{color:#000 !important;background:#fff !important;border-bottom:1px solid #bbb;padding:3px 4px}
+  table.grid .nm2{position:static;max-width:none;box-shadow:none}
+  /* 1本ぶんの行をページの境目で割らない（運用会社の名前だけ次のページへ落ちないように） */
+  table.grid tr{break-inside:avoid;page-break-inside:avoid}
+  /* 並べ替えのボタンは、2ページ目から繰り返す見出しに描かれないので、紙ではただの文字にする */
+  table.grid th button{display:contents}
+}
+[hidden]{display:none !important}
+@media (max-width:359px){
+  .cells{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:959px){
+  .top .btn.main{background:var(--card2);border-color:var(--axis)}
+  .detail{position:fixed;inset:0;z-index:15;border-radius:0;border:0;overflow-y:auto;overscroll-behavior:contain;
+    background:var(--bg0)}
+  .detail .pbar{background:var(--bg0)}
+  .detail:not(.open){display:none}
+  .pc-only{display:none}
+}
+@media (min-width:960px){
+  .cols{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
+  .detail{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto}
+  .detail .back{display:none}
+  .row{grid-template-columns:40px 40px minmax(0,1fr)}
+  /* 表・地図はファンドを選んでいないあいだ横いっぱい。選んだら右にくわしい面（「‹ 一覧」で閉じる） */
+  .cols.wide{grid-template-columns:minmax(0,1fr)}
+  .cols.wide .detail{display:none}
+  .detail.closable .back{display:inline-flex}
+}
+@media (min-width:600px){
+  .filters .search{flex:0 1 240px}
+  .chipsrow{flex:1 1 auto}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="grow">
+      <div class="tag">TOUSHIN</div>
+      <h1>投資信託ランキング</h1>
+      <div class="sub" id="asof">読み込んでいます…</div>
+    </div>
+    <button class="btn main" id="btn-imp" type="button">取り込む・つづき</button>
+  </header>
+  <div class="banner" id="banner" hidden></div>
+  <nav class="tabs" id="tabs"></nav>
+  <div class="filters" id="filters">
+    <input class="search" id="f-q" type="search" placeholder="名前でさがす" autocomplete="off" enterkeyhint="search">
+    <div class="chipsrow" role="group" aria-label="しぼりこみ">
+      <button class="chip" id="f-lev" type="button" aria-pressed="false">2倍・3倍型を外す</button>
+      <button class="chip" id="f-fee" type="button" aria-pressed="false">報酬1%以下</button>
+      <button class="chip" id="f-rough" type="button" aria-pressed="false">値動き ふつうまで</button>
+      <button class="chip" id="f-eff" type="button" aria-pressed="false">効率1以上</button>
+      <button class="chip" id="f-star4" type="button" aria-pressed="false">★4以上</button>
+      <button class="chip" id="f-nisa" type="button" aria-pressed="false">NISAで買える</button>
+      <button class="chip" id="f-star" type="button" aria-pressed="false">♡だけ</button>
+    </div>
+  </div>
+  <div class="avgbar" id="avgbar" hidden></div>
+  <div class="viewbar" id="viewbar" hidden></div>
+  <div class="filt-on" id="filt-on" hidden></div>
+  <div class="note" id="note"></div>
+  <main class="cols">
+    <section class="list" id="list"></section>
+    <aside class="detail" id="detail"></aside>
+  </main>
+</div>
+<div class="sheet" id="imp" hidden><div class="in" id="imp-in"></div></div>
+<div class="sheet" id="more" hidden><div class="in" id="more-in"></div></div>
+<div class="nudge" id="nudge" hidden role="dialog" aria-modal="true" aria-labelledby="nudge-title"><div class="card">
+  <div class="tag">UPDATE</div>
+  <h2 id="nudge-title">更新の時期です</h2>
+  <p id="nudge-text"></p>
+  <div class="row2">
+    <button class="btn main" id="nudge-go" type="button">取り込む</button>
+    <button class="btn" id="nudge-later" type="button">あとで</button>
+  </div>
+</div></div>
+<script>
+'use strict';
+const MK = 'https://itf.minkabu.jp';
+const TERMS = [['3', '3ヶ月'], ['6', '6ヶ月'], ['12', '1年'], ['36', '3年']];
+const TLABEL = {avg: '平均', star: '♡', '1': '1ヶ月', '3': '3ヶ月', '6': '6ヶ月', '12': '1年', '36': '3年'};
+const TCOLOR = {'3': 'var(--t3)', '6': 'var(--t6)', '12': 'var(--t12)', '36': 'var(--t36)'};
+const SHOW = 100, PAGE = 20;
+/* 自動で取る（jidouStart）の様子 */
+const jidou = {running: false, last: null, timer: null};
+const AUTO_PICK = 200;   /* 平均の上位から、自動で「取る」の印を付ける本数（まとめて取れた本数をふまえた目安） */
+const saved = (() => { try { return JSON.parse(localStorage.getItem('toushin') || '{}'); } catch (e) { return {}; } })();
+const S = {data: null, stars: new Set(), tab: saved.tab || 'avg', avg: saved.avg || ['3', '6', '12', '36'],
+  noLev: !!saved.noLev, lowFee: !!saved.lowFee, chunk: saved.chunk || 32, autoAvg: saved.autoAvg !== false, autoNext: saved.autoNext !== false,
+  onlyNisa: !!saved.onlyNisa, lowRough: !!saved.lowRough, effOne: !!saved.effOne, star4: !!saved.star4,
+  depth: Number.isInteger(saved.depth) && saved.depth > 0 && saved.depth <= 1000 && saved.depth % 20 === 0 ? saved.depth : 100,
+  view: ['list', 'table', 'map'].includes(saved.view) ? saved.view : 'list', sort: saved.sort && saved.sort.k ? saved.sort : null, mapSel: null,
+  onlyStar: false, q: '', sel: null, hist: null, metric: 'rank', range: null, picks: new Set()};
+
+const $ = s => document.querySelector(s);
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in (props || {})) {
+    const v = props[k];
+    if (v === null || v === undefined || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()) {
+    if (c === null || c === undefined || c === false) continue;
+    e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  }
+  return e;
+}
+function sv(tag, attrs, ...kids) {
+  const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const k in (attrs || {})) e.setAttribute(k, attrs[k]);
+  for (const c of kids) e.append(c);
+  return e;
+}
+const has = v => v !== null && v !== undefined;
+const pct = v => !has(v) ? '—' : (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+const pct1 = v => !has(v) ? '—' : (v > 0 ? '+' : '') + v.toFixed(1) + '%';
+const yen = v => !has(v) ? '—' : Math.round(v).toLocaleString('ja-JP') + '円';
+const md = d => d ? (+d.slice(5, 7)) + '/' + (+d.slice(8, 10)) : '';
+const ym = d => d ? d.slice(0, 4) + '/' + d.slice(5, 7) : '';
+const norm = s => (s || '').normalize('NFKC').toLowerCase();
+const rankUrl = (term, page) => MK + '/ranking/return?term=' + term + '&page=' + page;
+const narrow = () => !window.matchMedia('(min-width:960px)').matches;
+function keep() {
+  try { localStorage.setItem('toushin', JSON.stringify({tab: S.tab, avg: S.avg, noLev: S.noLev, lowFee: S.lowFee, chunk: S.chunk,
+    autoAvg: S.autoAvg, autoNext: S.autoNext, onlyNisa: S.onlyNisa, lowRough: S.lowRough, effOne: S.effOne, star4: S.star4,
+    view: S.view, sort: S.sort, depth: S.depth})); } catch (e) {}
+}
+/* 期間ごとの取り込み具合：cov＝1位から切れ目なく何位まで／covAny＝入っている件数／bound＝「圏外」の手前の順位 */
+const cov = t => (S.data && S.data.coverage[t]) ? S.data.coverage[t].upto : 0;
+const covAny = t => (S.data && S.data.coverage[t]) ? S.data.coverage[t].count : 0;
+const bound = t => cov(t) || covAny(t);
+const spanText = t => {
+  const c = S.data.coverage[t];
+  return c.span ? c.span.replace('~', '〜') : ym(c.date) + ' 末まで';
+};
+const any = d => !!(d.period || d.nav_date);
+const rankOf = (f, t) => has(f.t[t]) ? f.t[t] : (has(f.k[t]) ? f.k[t] : null);
+/* 順位の見せ方：入っていれば「13位」、その期間を取り込んであって入っていなければ「圏外」、取り込んでいなければ「—」 */
+function rankLabel(f, t, long) {
+  const r = rankOf(f, t);
+  if (r !== null) return {text: r + '位', out: false};
+  if (covAny(t)) return {text: '圏外', sub: long ? bound(t) + '位より下' : null, out: true};
+  return {text: '—', sub: long ? 'まだ' : null, out: true};
+}
+/* current＝塗る期間（1つの期間のタブならその期間、平均の面ならならしている期間ぜんぶ） */
+function strip(f, current, long) {
+  const on = Array.isArray(current) ? current : [current];
+  return h('div', {class: 'cells'}, TERMS.map(([k, label]) => {
+    const key = h('i');
+    key.style.background = TCOLOR[k];
+    const r = rankLabel(f, k, long);
+    const gv = (k === '3' || k === '6') && f.g ? f.g[k] : null;
+    const sub = r.sub || (has(f.r[k]) && k !== '12' ? (k === '36' ? '年' : '') + pct1(f.r[k]) : (has(gv) ? '約' + pct1(gv) : null));
+    /* 先月からの順位の上がり下がり（両方の月に入っているときだけ。変わらなければ出さない） */
+    const d = f.mv ? f.mv[k] : null;
+    const mv = d ? h('span', {class: 'mv ' + (d > 0 ? 'up' : 'down'), title: '先月から' + Math.abs(d) + (d > 0 ? '位上がった' : '位下がった')},
+      (d > 0 ? '↑' : '↓') + Math.abs(d)) : null;
+    return h('div', {class: 'cell' + (on.includes(k) ? ' on' : ''), 'data-term': k},
+      h('div', {class: 'k'}, key, label),
+      h('div', {class: 'a' + (r.out ? ' out' : '')}, r.text, mv),
+      sub ? h('div', {class: 'b'}, sub) : null);
+  }));
+}
+/* NISA の印（ファンドのページを取り込んだファンドだけ分かる） */
+function nisaText(f) {
+  if (!f.nisa || !f.nisa.length) return null;
+  const t = f.nisa.some(x => /つみたて/.test(x)), g = f.nisa.some(x => /成長/.test(x));
+  return 'NISA' + (t && g ? '（つみたて・成長）' : t ? '（つみたて）' : g ? '（成長）' : '');
+}
+/* 値動きの荒さ（年率の標準偏差 %）を言葉に。目安なので、くわしい面に数字と目安を並べて出す */
+const roughWord = s => s < 10 ? 'おだやか' : s < 20 ? 'ふつう' : s < 35 ? '荒め' : 'とても荒い';
+function gain(label, v) {
+  return h('div', {class: 'line'}, label + 'で ', h('b', {class: v >= 0 ? 'up' : 'down'}, pct1(v)));
+}
+
+/* サーバーに聞く。通信が切れた・画面を移る途中で止まった、はどれも null で返す（エラーを外へ投げない）。 */
+async function api(url, body) {
+  try {
+    const res = await fetch(url, body === undefined ? undefined
+      : {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    return res.ok ? await res.json() : null;
+  } catch (e) { return null; }
+}
+
+async function load() {
+  const data = await api('/api/latest');
+  if (!data) {
+    if (!S.data) {
+      $('#asof').textContent = '読み込めませんでした';
+      $('#list').replaceChildren(h('div', {class: 'empty'}, 'この画面のサーバーに届きませんでした。',
+        h('div', null, h('button', {class: 'btn main', type: 'button', onclick: load}, 'もう一度読み込む'))));
+    }
+    return;
+  }
+  S.data = data;
+  S.stars = new Set(S.data.stars || []);
+  S.picks = new Set(S.data.picks || []);
+  if (S.tab === '1' && !S.data.m1_from) S.tab = 'avg';
+  await syncAutoPicks();
+  render();
+}
+
+/* 平均の上位 AUTO_PICK 本には、自動で「取る」の印を付ける（1本ずつ押さなくてよいように）。
+   絞り込み（名前でさがす・♡だけ など）とは関係なく、いま選んでいる「ならす期間」での平均の並びの上位。
+   画面を開くたびに、足りない分だけ足す（サーバー側では付けない）。取り込みの面のスイッチ（S.autoAvg・ブラウザごとに覚える）で切れる */
+async function syncAutoPicks() {
+  if (!S.autoAvg || !S.data || !any(S.data)) return;
+  const missing = listRows('avg', true, AUTO_PICK).rows.map(r => r.f.id).filter(id => !S.picks.has(id));
+  if (missing.length) await setPicks('add', missing);
+}
+
+function render() {
+  const d = S.data;
+  if (!d) return;
+  $('#asof').textContent = d.period ? (+d.period.slice(5, 7)) + '月末までの成績（みんかぶ）'
+    : any(d) ? '成績はまだ入っていません' : 'まだ取り込んでいません';
+  $('main.cols').classList.toggle('wide', S.view !== 'list' && !S.sel);
+  $('#detail').classList.toggle('closable', S.view !== 'list');
+  renderTabs(); renderAvgBar(); renderViewBar(); renderList(); renderDetail();
+  $('#f-lev').setAttribute('aria-pressed', String(S.noLev));
+  $('#f-rough').setAttribute('aria-pressed', String(S.lowRough));
+  $('#f-eff').setAttribute('aria-pressed', String(S.effOne));
+  $('#f-star4').setAttribute('aria-pressed', String(S.star4));
+  $('#f-fee').setAttribute('aria-pressed', String(S.lowFee));
+  $('#f-nisa').setAttribute('aria-pressed', String(!!S.onlyNisa));
+  $('#f-star').setAttribute('aria-pressed', String(S.onlyStar));
+  $('#f-star').hidden = S.tab === 'star';
+  /* 押してある絞り込みは、横に送る列の前へ（iPhone の幅で、読み直したときに見えない所で効いていないように） */
+  const row = $('.chipsrow');
+  row.append(...[...row.children].sort((a, b) => (b.getAttribute('aria-pressed') === 'true') - (a.getAttribute('aria-pressed') === 'true')
+    || (+a.dataset.i) - (+b.dataset.i)));
+  renderFiltOn();
+}
+
+function renderTabs() {
+  const tabs = [['avg', '平均'], ['star', '♡']];
+  if (S.data.m1_from) tabs.push(['1', '1ヶ月']);
+  tabs.push(...TERMS);
+  $('#tabs').replaceChildren(...tabs.map(([k, label]) => h('button', {
+    class: 'tab', type: 'button', 'aria-pressed': String(S.tab === k),
+    onclick: () => { S.tab = k; keep(); render(); }}, label)));
+}
+
+function renderAvgBar() {
+  const bar = $('#avgbar');
+  bar.hidden = S.tab !== 'avg';
+  if (bar.hidden) return;
+  bar.replaceChildren(h('span', {class: 'lbl'}, 'ならす期間'), ...TERMS.map(([k, label]) => {
+    const on = S.avg.includes(k);
+    const dot = h('span', {class: 'sw'});
+    dot.style.background = TCOLOR[k];
+    return h('button', {class: 'chip', type: 'button', 'aria-pressed': String(on), onclick: () => {
+      S.avg = on ? S.avg.filter(x => x !== k) : [...S.avg, k];
+      keep(); render();
+    }}, dot, label);
+  }));
+}
+
+function visible() {
+  const q = norm(S.q);
+  return S.data.funds.filter(f => (!S.noLev || !f.lev) && (!S.onlyStar || S.stars.has(f.id))
+    && (!S.lowFee || (has(f.fee) && f.fee <= 1))
+    && (!S.onlyNisa || (f.nisa && f.nisa.length > 0))
+    && (!S.lowRough || (roughOf(f) && roughOf(f).v < 20))
+    && (!S.effOne || (f.risk && f.risk.p && has(f.risk.p['12']) && f.risk.p['12'] >= 1))
+    && (!S.star4 || (f.rate || 0) >= 4)
+    && (!q || norm(f.name + ' ' + f.co).includes(q)));
+}
+
+function listRows(tab = S.tab, raw = false, limit = SHOW) {
+  const fs = raw ? S.data.funds : visible();
+  if (tab === 'avg') {
+    /* ならす：選んだ期間の順位の平均。その期間の上位に入っていなければ「取り込んだ順位のすぐ下」として数える
+       （4つ全部に入っているファンドはわずかなので、はじくと数本しか残らないため） */
+    const A = S.avg.filter(t => covAny(t) > 0);
+    if (!A.length) return {rows: [], A};
+    const rows = fs.map(f => {
+      const real = A.filter(t => rankOf(f, t) !== null).length;
+      if (!real) return null;
+      const avg = A.reduce((s, t) => s + (rankOf(f, t) !== null ? rankOf(f, t) : bound(t) + 1), 0) / A.length;
+      return {f, avg, real};
+    }).filter(Boolean).sort((a, b) => a.avg - b.avg || b.real - a.real).slice(0, limit);
+    return {rows, A};
+  }
+  if (tab === 'star') {
+    return {rows: fs.filter(f => S.stars.has(f.id))
+      .sort((a, b) => (has(b.r['12']) ? b.r['12'] : -1e9) - (has(a.r['12']) ? a.r['12'] : -1e9))
+      .map((f, i) => ({f, rank: i + 1}))};
+  }
+  if (tab === '1') {
+    return {rows: fs.filter(f => has(f.r['1'])).sort((a, b) => b.r['1'] - a.r['1']).slice(0, SHOW)
+      .map((f, i) => ({f, rank: i + 1}))};
+  }
+  return {rows: fs.filter(f => has(f.t[tab])).sort((a, b) => a.t[tab] - b.t[tab]).slice(0, SHOW)
+    .map(f => ({f, rank: f.t[tab]}))};
+}
+
+/* ---- NISA の印をまとめて取る（NISA のランキングのページ） ----
+   成長投資枠は約1,800本・92ページ、つみたては約300本・15ページ（2026-10-01）。1年のリターンの高い順なので、
+   成長投資枠は上の10ページくらいで、平均の上位のファンドの多くに印が付く。めったに変わらないので、たまにでよい */
+function nisaBlock() {
+  const d = S.data, pages = d.nisa_pages || {};
+  const marked = d.funds.filter(f => f.nisa && f.nisa.length).length;
+  const row = (which, label, total) => {
+    const done = pages[which] || 0;
+    return h('div', {class: 'brow'}, h('span', {class: 's'}, h('b', null, label), h('br'),
+      (done ? done + 'ページ目まで取り込み済み' : 'まだ') + '（全部で' + total + 'ページほど）'),
+      h('a', {class: 'btn' + (done ? '' : ' main'), href: MK + '/ranking/' + which + '?page=' + (done + 1)},
+        (done * PAGE + 1) + '〜' + (done * PAGE + PAGE) + '位を開く'));
+  };
+  return h('div', {class: 'sect', id: 'nisa-bulk'},
+    h('h3', null, 'NISA の印をまとめて取る（最初に1回・たまにでよい）'),
+    h('p', {class: 'hint'}, 'NISA のランキングのページで「取り込む」を押すと、並んでいる20本に NISA の印が付きます。'
+      + 'いま並んでいるファンドのうち ' + marked + '本に印があります。載っていないファンドが NISA で買えないとは限りません。'),
+    h('div', {class: 'board'}, row('yield_nisa_growth', 'NISA成長投資枠', 92), row('yield_nisa', 'つみたて投資枠', 15)));
+}
+
+/* ---- まとめて取る（比較のページ） ----
+   「取る」の印のファンドのうち、いまの成績の月のデータをまだ取っていないものを、chunk 本ずつ比較のページで開く */
+const compareUrl = ids => MK + '/fund/compare?fund_ids=' + ids.join(',');
+function remainingPicks() {
+  const d = S.data;
+  return (d.picks || []).filter(id => !d.period || (d.taken || {})[id] !== d.period);
+}
+function chunksOf(ids) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += S.chunk) out.push(ids.slice(i, i + S.chunk));
+  return out;
+}
+function bulkBlock() {
+  const all = S.data.picks || [], rest = remainingPicks(), chunks = chunksOf(rest);
+  const mark = (tab, label) => h('button', {class: 'btn', type: 'button', 'data-mark': tab, onclick: async () => {
+    const ids = listRows(tab, false, tab === 'avg' ? AUTO_PICK : SHOW).rows.map(r => r.f.id);
+    if (await setPicks('add', ids)) { render(); openImport(); }
+  }}, label);
+  return h('div', {class: 'sect', id: 'bulk'},
+    h('h3', null, 'まとめて取る（比較のページで、印のファンドを' + S.chunk + '本ずつ）'),
+    h('p', {class: 'hint'}, '「取る」の印：' + all.length + '本（このうち、まだ' + (S.data.period ? ym(S.data.period) + '末の分を' : '') + '取っていないもの ' + rest.length + '本）。'
+      + '開いた比較のページで「取り込む」を押すと、1年・3年・5年のリターンと効率、なりたち（できた日・終わる日・分配金・買うときの手数料）が入ります。'),
+    h('div', {class: 'filters'}, h('button', {class: 'chip', type: 'button', id: 'auto-avg', 'aria-pressed': String(S.autoAvg),
+      onclick: async () => { S.autoAvg = !S.autoAvg; keep(); await syncAutoPicks(); render(); openImport(); }},
+      '平均の上位' + AUTO_PICK + '本は、自動で印を付ける')),
+    h('div', {class: 'chunks'}, S.autoAvg ? null : mark('avg', '平均の上位' + AUTO_PICK + '本に印'), mark('12', '1年の上位100本に印'),
+      all.length ? h('button', {class: 'btn', type: 'button', onclick: async () => {
+        if (await setPicks('clear', [])) { render(); openImport(); }
+      }}, '印を全部外す') : null),
+    h('div', {class: 'filters'}, h('span', {class: 'hint'}, '1回に並べる本数'), [8, 16, 32, 64].map(n => h('button', {
+      class: 'chip', type: 'button', 'aria-pressed': String(S.chunk === n), 'data-chunk': String(n),
+      onclick: () => { S.chunk = n; keep(); openImport(); }}, n + '本'))),
+    chunks.length ? h('div', {class: 'chunks'}, chunks.map((ids, i) => h('a', {class: 'btn' + (i ? '' : ' main'),
+      href: compareUrl(ids)}, (i * S.chunk + 1) + '〜' + (i * S.chunk + ids.length) + '本目を開く')))
+      : h('p', {class: 'hint'}, all.length
+        ? '印のファンドは、ぜんぶ取り込み済みです。平均に乗る本数を増やすときは、上の期間ごとの「' + (cov('12') + 1) + '〜' + (cov('12') + PAGE) + '位を開く」から続けます' + (S.autoAvg ? '（平均の上位に入ったファンドには自動で印が付き、ここに開くリンクが出ます）' : '') + '。'
+        : '一覧の「取る」を押すか、上のボタンで印を付けます。'));
+}
+
+/* 「圏外」の意味を1行で（「1年で +44.7%」の横に「1年 圏外」が並んでも食い違って見えないように） */
+function outText() {
+  const b = TERMS.filter(([k]) => covAny(k)).map(([k, label]) => [label, bound(k)]);
+  if (!b.length) return '';
+  const most = b.map(x => x[1]).sort((a, c) => b.filter(x => x[1] === c).length - b.filter(x => x[1] === a).length)[0];
+  const other = b.filter(x => x[1] !== most).map(x => x[0] + 'は' + x[1] + '位');
+  return '圏外＝みんかぶの上位' + most + '位' + (other.length ? '（' + other.join('・') + '）' : '') + 'に入っていない。';
+}
+
+function noteText(info) {
+  const t = S.tab;
+  if (!any(S.data)) return '';
+  if (t === 'avg') {
+    const A = info.A || [];
+    const lacking = TERMS.filter(([k]) => S.avg.includes(k) && !covAny(k)).map(([, label]) => label);
+    return '色の付いた' + A.length + 'つの期間の順位をならして、どの期間でも上位にいる順に並べています。' + outText()
+      + (lacking.length ? '（' + lacking.join('・') + 'はまだ取り込んでいません）' : '');
+  }
+  if (t === 'star') return '♡を付けたファンドです。' + outText();
+  if (t === '1') return '貯めた基準価額から計算した、1ヶ月の値上がりの順です（分配金は入りません）。';
+  if (!covAny(t)) return '';
+  return TLABEL[t] + 'の成績の順です（みんかぶ・' + spanText(t) + '・'
+    + (cov(t) ? cov(t) + '位まで' : covAny(t) + '件・1位からの分がまだ') + '）。' + outText();
+}
+
+function renderList() {
+  const box = $('#list');
+  const info = listRows();
+  $('#note').textContent = noteText(info) + filterNote();
+  if (!any(S.data)) {
+    box.replaceChildren(h('div', {class: 'empty'}, 'まだ何も入っていません。みんかぶのランキングを開いて「取り込む」を押すと、ここに並びます。',
+      h('div', null, h('button', {class: 'btn main', type: 'button', onclick: openImport}, '取り込みのしかたを見る'))));
+    return;
+  }
+  if (!info.rows.length) {
+    const t = S.tab;
+    const need = (t !== 'avg' && t !== '1' && t !== 'star' && !covAny(t));
+    box.replaceChildren(h('div', {class: 'empty'},
+      need ? TLABEL[t] + 'のランキングは、まだ取り込んでいません。'
+        : (t === 'star' && !S.stars.size) ? '♡はまだありません。ランキングの行の♡を押すと、ここに入ります。' : '当てはまるファンドがありません。',
+      need ? h('div', null, h('a', {class: 'btn main', href: rankUrl(t, 1)}, 'みんかぶで' + TLABEL[t] + 'の1〜20位を開く')) : null));
+    return;
+  }
+  box.classList.toggle('plain', S.view !== 'list');
+  if (S.view === 'table') { renderTable(info); return; }
+  if (S.view === 'map') { renderMap(info); return; }
+  const isAvg = S.tab === 'avg';
+  box.replaceChildren(...info.rows.map((r, i) => {
+    const f = r.f;
+    /* 小さい字の行：iPhone の幅では右が切れるので、初心者に効く順（印・評価・報酬・値動き・効率・型・NISA・会社）に並べる */
+    const meta = h('div', {class: 'meta'});
+    const bits = [];
+    const st = stayOf(f), dn = maxOf(f.down);
+    if (f.lev) bits.push(h('span', {class: 'dn'}, '2倍・3倍型'));
+    if (isMonthly(f)) bits.push('毎月分配');
+    if (dn) bits.push(h('span', {class: 'dn', title: dn.n + 'か月続けて順位が下がっている'}, '↓続落'));
+    if (st) bits.push(h('span', {class: 'stay', title: TLABEL[st.k] + 'のランキングに' + st.n + 'か月続けて'}, '常連'));
+    if (f.rate) bits.push(h('span', {class: 'st', title: 'みんかぶのレーティング'}, '★'.repeat(f.rate)));
+    if (has(f.fee)) bits.push('報酬' + f.fee + '%');
+    const ro = roughOf(f, '12');
+    const rk = f.risk || {s: {}, p: {}};
+    if (ro && S.tab !== 'star') bits.push('値動き' + roughWord(ro.v));
+    if (S.tab !== 'star' && has(rk.p['12'])) bits.push('効率' + rk.p['12'].toFixed(2));
+    if (nisaText(f)) bits.push(nisaText(f));
+    if (f.co) bits.push(f.co);
+    bits.forEach((b, j) => meta.append(j ? ' ・' : '', b));
+    /* ♡の面は、安心して持てるかの目安（荒さ・効率）と、買ってから・先月からの増減も1行で */
+    const held = f.hold && has(f.nav) ? (f.nav / f.hold.nav - 1) * 100 : null;
+    const nm2 = f.navm && f.navm.length > 1 ? f.navm.slice(-2) : null;
+    const nv = nm2 && (parseDay(nm2[1][0]) - parseDay(nm2[0][0])) >= 20 * 864e5 ? (nm2[1][1] / nm2[0][1] - 1) * 100 : null;
+    const r1 = [ro ? '荒さ ' + (ro.est ? '約' : '') + Math.round(ro.v) + '%（' + roughWord(ro.v) + '）' : null,
+      has(rk.p['12']) ? '効率 ' + rk.p['12'].toFixed(2) : null].filter(Boolean);
+    const riskBits = S.tab === 'star' ? [has(held) ? '買ってから ' + pct1(held) : null, r1.length ? r1.join('・') + '（1年）' : null,
+      has(nv) ? '先月から ' + pct1(nv) : null].filter(Boolean) : [];
+    const riskLine = riskBits.length ? h('div', {class: 'meta risk-line'}, riskBits.join('・')) : null;
+    let line = null;
+    /* 平均の面は、行を短く保つため一言を出さない（並び順と、色の付いた期間の箱で、どの期間で上位かが見える） */
+    if (isAvg) line = null;
+    else if (S.tab === '1') line = gain('1ヶ月', f.r['1']);
+    else if (has(f.r['12'])) line = gain('1年', f.r['12']);
+    const open = () => selectFund(f.id);
+    return h('div', {class: 'row' + (S.sel === f.id ? ' on' : ''), role: 'button', tabindex: '0', 'data-id': f.id,
+      onclick: open, onkeydown: e => { if (e.key === 'Enter') open(); }},
+      h('div', {class: 'rk'}, isAvg ? i + 1 : r.rank),
+      h('div', {class: 'marks'}, heart(f.id), S.autoAvg ? null : pickBtn(f.id)),
+      h('div', null, h('div', {class: 'nm'}, f.name), meta, line, riskLine),
+      strip(f, isAvg ? info.A : S.tab, false));
+  }));
+}
+
+function heart(id) {
+  const on = S.stars.has(id);
+  return h('button', {class: 'heart', type: 'button', 'aria-pressed': String(on),
+    'aria-label': on ? '追うのをやめる' : '追う', onclick: async e => {
+      e.stopPropagation();
+      const out = await api('/api/star', {id, on: !on});
+      if (out) { S.stars = new Set(out.stars); S.data.stars = out.stars; render(); }
+    }}, on ? '♥' : '♡');
+}
+/* 「取る」の印を付け外しする（op＝add／remove／clear） */
+async function setPicks(op, ids) {
+  const out = await api('/api/picks', {op, ids});
+  if (out) { S.picks = new Set(out.picks); S.data.picks = out.picks; }
+  return !!out;
+}
+function pickBtn(id) {
+  const on = S.picks.has(id);
+  return h('button', {class: 'pick', type: 'button', 'aria-pressed': String(on),
+    'aria-label': on ? 'データを取る印を外す' : 'データを取る印を付ける', title: 'データを取る印（比較のページでまとめて取り込む）',
+    onclick: async e => {
+      e.stopPropagation();
+      if (await setPicks(on ? 'remove' : 'add', [id])) render();
+    }}, h('span', null, '取る'));
+}
+
+/* ---- 面（くわしい面・取り込みの面）の開け閉めと、戻る ----
+   iPhone の幅では、面を開くときに履歴を1つ足す。Safari の戻る・端からのスワイプ・面の「‹ 一覧」のどれでも、
+   面が閉じて一覧に戻る（この画面の前のページへは行かない）。PC の幅では面が横に並ぶので、履歴は足さない。 */
+let pushed = null;
+function pushPanel(kind, hash) {
+  if (!narrow()) return;
+  if (pushed) history.replaceState({panel: kind}, '', hash);
+  else history.pushState({panel: kind}, '', hash);
+  pushed = kind;
+}
+function closePanels() {
+  $('#imp').hidden = true;
+  $('#more').hidden = true;
+  if (S.sel && narrow()) { S.sel = null; render(); }
+}
+function goBack() {
+  if (pushed) { history.back(); return; }
+  /* パソコンの幅：開いている面（取り込み・読み方・今月の動き）があれば、それだけ閉じる */
+  if (!$('#imp').hidden || !$('#more').hidden) { $('#imp').hidden = true; $('#more').hidden = true; return; }
+  S.sel = null; render();
+}
+window.addEventListener('popstate', () => {
+  if (!pushed) return;
+  const was = pushed;
+  pushed = null;
+  /* くわしい面から読み方・今月の動きを開いていたときは、閉じたあと、そのファンドのくわしい面に戻る */
+  const ret = (was === 'help' || was === 'moves') ? S.back : null;
+  S.back = null;
+  closePanels();
+  if (ret) selectFund(ret);
+});
+function pbar(backLabel, title, extra) {
+  return h('div', {class: 'pbar'},
+    h('button', {class: 'back', type: 'button', onclick: goBack, 'aria-label': backLabel}, h('span', null, '‹'), backLabel),
+    h('div', {class: 'ttl'}, title), extra || null);
+}
+
+async function selectFund(id) {
+  S.sel = id; S.hist = null; S.range = null; S.preset = undefined;
+  pushPanel('fund', '#f=' + id);
+  render();
+  $('#detail').classList.add('open');
+  $('#detail').scrollTop = 0;
+  const out = await api('/api/fund/' + id);
+  if (S.sel !== id) return;
+  S.hist = out ? out.history : [];
+  S.histBad = !out;
+  renderDetail();
+}
+
+function renderDetail() {
+  const box = $('#detail');
+  const f = S.sel && S.data.funds.find(x => x.id === S.sel);
+  if (!f) {
+    box.classList.remove('open');
+    box.replaceChildren(h('div', {class: 'empty'}, 'ファンドを押すと、ここに期間ごとの順位と推移が出ます。'));
+    return;
+  }
+  const stat = (k, v, sub) => h('div', {class: 'stat'}, h('div', {class: 'k'}, k), h('div', {class: 'v'}, v),
+    sub ? h('div', {class: 'k'}, sub) : null);
+  /* 前日比は、取り込んだ日のページの数字（次に取り込むまで変わらない）。いつのものか分かるように日付を付ける */
+  const diff = has(f.nd) ? (f.nav_date ? md(f.nav_date) + ' の' : '') + '前日比 ' + (f.nd > 0 ? '+' : '')
+    + Math.round(f.nd).toLocaleString('ja-JP') + '円' : '';
+  const r12 = f.r['12'];
+  const lacking = TERMS.some(([k]) => k !== '12' && !has(f.r[k]));
+  const asOf = [f.r_date ? '成績は ' + ym(f.r_date) + ' 末まで' : '', f.nav_date ? '基準価額は ' + md(f.nav_date) : '',
+    '3年・5年は1年あたり（年率）'].filter(Boolean).join('・');
+  const badges = badgesOf(f);
+  const navGain = ['3', '6'].filter(k => !has(f.r[k]) && f.g && has(f.g[k]));
+  box.replaceChildren(...[
+    pbar('一覧', f.name, h('div', {class: 'marks'}, heart(f.id), S.autoAvg ? null : pickBtn(f.id))),
+    h('h2', null, f.name), h('div', {class: 'co'}, f.co || ''),
+    badges.length ? h('div', {class: 'badges', id: 'badges'}, badges.map(([t, c]) => h('span', {class: 'badge ' + c}, t))) : null,
+    h('div', {class: 'stats'},
+      stat('基準価額', yen(f.nav), diff),
+      stat('信託報酬', has(f.fee) ? f.fee + '%' : '—', has(f.fee) ? '100万円で年 約' + manYen(f.fee * 10000) : null),
+      stat('みんかぶのレーティング', f.rate ? '★'.repeat(f.rate) : '—'),
+      stat('NISA', f.nisa && f.nisa.length ? f.nisa.join('・').replace(/NISA/g, '') : nisaOut(f) ? '対象外のはず' : (f.nisa ? 'なし' : '—'),
+        nisaOut(f) ? '2倍・3倍型と毎月分配型は、制度で NISA の対象外' : (f.nisa ? null : 'ページを取り込むと分かる'))),
+    strip(f, null, true),
+    newNote(f),
+    has(r12) ? h('div', {class: 'big', id: 'gain12'}, '1年で ', h('b', {class: r12 >= 0 ? 'up' : 'down'}, pct1(r12)),
+      '（100万円が1年で約' + Math.round(100 * (1 + r12 / 100)) + '万円）') : null,
+    has(f.r['36']) || has(f.r['60']) ? h('div', {class: 'hint', id: 'gain-long'},
+      [has(f.r['36']) ? '3年は1年あたり ' + pct1(f.r['36']) : null, has(f.r['60']) ? '5年は1年あたり ' + pct1(f.r['60']) : null]
+        .filter(Boolean).join('・') + '（長く持っていたら、1年にならしてこのくらい）') : null,
+    has(f.r['1']) ? h('div', {class: 'hint'}, '1ヶ月で ' + pct1(f.r['1']) + '（貯めた基準価額から計算・分配金は入りません）') : null,
+    navGain.length ? h('div', {class: 'hint', id: 'gain-nav'}, navGain.map(k => TLABEL[k] + 'で ' + pct1(f.g[k])).join('・')
+      + '（貯めた基準価額から計算・分配金は入りません）') : null,
+    riskBlock(f),
+    yenBlock(f),
+    holdBlock(f),
+    navmBlock(f),
+    h('div', {class: 'sect', id: 'chart-sect'}),
+    infoBlock(f),
+    matesBlock(f),
+    asOf ? h('div', {class: 'hint', id: 'as-of'}, asOf) : null,
+    lacking ? h('div', {class: 'hint pc-only'}, '3ヶ月・6ヶ月の％は、パソコンでこのファンドの「リターン」のページを取り込むと入ります。') : null,
+    h('div', {class: 'links'},
+      h('a', {class: 'btn main', href: MK + '/fund/' + f.id, target: '_blank', rel: 'noopener'}, 'みんかぶで見る'),
+      h('a', {class: 'btn', href: MK + '/fund/' + f.id + '/return'}, 'リターンのページを開く'))].filter(Boolean));
+  renderChart();
+}
+
+/* 安心して持てるか：値動きの荒さ（どのくらい上下にぶれたか）と、効率（荒さの割にどれだけ増えたか＝シャープレシオ）。
+   1年・3年・5年。荒さは本物（ファンドのページ）が無ければ目安（増え方÷効率）。目盛りは 0〜50% を4つの色に */
+function gauge(v) {
+  const g = h('div', {class: 'gauge', 'aria-hidden': 'true'}, h('i'));
+  g.firstChild.style.left = Math.min(100, Math.max(0, v / 50 * 100)) + '%';
+  return g;
+}
+function riskBlock(f) {
+  const R = f.risk || {s: {}, p: {}, pk: {}};
+  const periods = [['12', '1年'], ['36', '3年'], ['60', '5年']].filter(([k]) => roughOf(f, k) || has(R.p[k]));
+  const est = periods.some(([k]) => { const o = roughOf(f, k); return o && o.est; });
+  const ro = roughOf(f, '12') || roughOf(f, '36');
+  /* 老後シミュレーターへ：荒さの2倍（めったに無い悪い年の目安）を、10%きざみ・10〜60% にして「NISA が下がったら」へ */
+  const down = ro && !nisaOut(f) && !f.lev && !isMonthly(f) ? Math.min(60, Math.max(10, Math.round(ro.v * 2 / 10) * 10)) : null;
+  return h('div', {class: 'sect', id: 'risk'}, h('h3', null, '値動きの荒さと効率'),
+    periods.length ? [
+      h('div', {class: 'riskgrid'}, periods.map(([k, label]) => {
+        const o = roughOf(f, k);
+        return h('div', {class: 'risk', 'data-term': k},
+          h('div', {class: 't'}, label + (k === '12' ? '' : '（1年あたり）')),
+          o ? [h('div', {class: 'k'}, '値動きの荒さ' + (o.est ? '（目安）' : '')),
+            h('div', {class: 'v'}, roughShort(o), h('span', {class: 'w'}, roughWord(o.v))), gauge(o.v)] : null,
+          has(R.p[k]) ? [h('div', {class: 'k'}, '効率（荒さの割の増え方）'),
+            h('div', {class: 'v'}, R.p[k].toFixed(2), h('span', {class: 'w'},
+              has(R.pk[k]) ? '全ファンド中 ' + R.pk[k] + '位' : (R.p[k] >= 1 && !f.lev ? '1以上' : '')))] : null);
+      })),
+      h('div', {class: 'hint', id: est ? 'rough-est' : null}, '荒さ＝1年の上下のぶれ（目安：債券 数%・世界の株 15〜20%・2倍型 40%以上）。効率＝ぶれの割の増え方（1以上ならよいほう）。'
+        + (est ? '「約」は増え方÷効率で出した目安で、本物より数%大きめです。' : ''),
+        h('button', {class: 'linkish', type: 'button', onclick: openHelp}, 'くわしくは「数字の読み方」')),
+      down ? h('div', {class: 'bridge'}, h('a', {class: 'btn', id: 'to-rougo', href: rougoBase() + '#sagaru=' + down, target: '_blank', rel: 'noopener'},
+        '老後シミュレーターで試す：NISA をこのファンドだけで持っていて、悪い年（−' + down + '%）が来たら'),
+        h('div', {class: 'hint'}, '悪い年＝荒さの2倍（めったに無い年の目安）を、10%きざみにしたものです。')) : null]
+      : h('div', {class: 'hint'}, '取り込みの面の「まとめて取る」（比較のページ）か、このファンドの「リターン」のページを取り込むと出ます。'));
+}
+
+const METRICS = [['rank', '順位'], ['ret', 'リターン'], ['nav', '基準価額']];
+function seriesFor(metric, hist) {
+  if (metric === 'nav') return [{label: '基準価額', color: 'var(--pos)', vals: hist.map(x => has(x.nav) ? x.nav : null), fmt: yen}];
+  return TERMS.map(([k, label]) => ({label, color: TCOLOR[k],
+    vals: hist.map(x => metric === 'rank' ? (has(x['t' + k]) ? x['t' + k] : x['k' + k]) : x['r' + k])
+      .map(v => (has(v) ? v : null)),
+    fmt: metric === 'rank' ? (v => v + '位') : pct})).filter(s => s.vals.some(v => v !== null));
+}
+
+function renderChart() {
+  const sect = $('#chart-sect');
+  if (!sect) return;
+  if (!S.hist) { sect.replaceChildren(h('h3', null, '推移'), h('div', {class: 'hint'}, '読み込んでいます…')); return; }
+  /* 成績（順位・リターン）は月ごと、基準価額は日ごとに貯まる。いま選んでいるものの数字がある日だけを並べる */
+  const full = seriesFor(S.metric, S.hist);
+  const keepIdx = S.hist.map((x, i) => i).filter(i => full.some(s => s.vals[i] !== null));
+  const hist = keepIdx.map(i => S.hist[i]);
+  const series = full.map(s => Object.assign({}, s, {vals: keepIdx.map(i => s.vals[i])}));
+  const n = hist.length, monthly = S.metric !== 'nav';
+  if (!S.range || S.range[1] > n - 1) S.range = [0, Math.max(0, n - 1)];
+  const chips = h('div', {class: 'filters'}, METRICS.map(([k, label]) => h('button', {class: 'chip', type: 'button',
+    'aria-pressed': String(S.metric === k), onclick: () => { S.metric = k; S.range = null; S.preset = undefined; renderChart(); }}, label)));
+  if (n < 3) {
+    /* 2点では線にならず、見る範囲も選べないので、貯まるまでは一言だけ */
+    sect.replaceChildren(h('h3', null, '推移'), chips, h('div', {class: 'hint', id: 'chart-wait'},
+      S.histBad ? '推移を読み込めませんでした。もう一度ファンドを押してください。'
+        : !n ? 'まだ数字が入っていません。'
+          : monthly ? 'いまは ' + n + 'か月ぶんです。みんかぶの成績は月に1回変わるので、3か月ぶん貯まると、ここに線が出ます。'
+            : 'いまは ' + n + '日ぶんです。別の日にも取り込むと、3日ぶんから線が出ます。'));
+    return;
+  }
+  const chart = h('div', {class: 'chart'});
+  const legend = series.length > 1 ? h('div', {class: 'legend'}, series.map(s => {
+    const key = h('i'); key.style.background = s.color;
+    return h('span', null, key, s.label);
+  })) : null;
+  const lab = h('span', null, '');
+  const sliders = [0, 1].map(idx => h('input', {type: 'range', min: '0', max: String(n - 1), step: '1', value: String(S.range[idx]),
+    'aria-label': idx ? 'ここまで' : 'ここから', oninput: e => {
+      let v = +e.target.value;
+      if (idx === 0) v = Math.min(v, S.range[1] - 1); else v = Math.max(v, S.range[0] + 1);
+      S.range[idx] = v; e.target.value = String(v);
+      S.preset = null;
+      redraw();
+    }}));
+  /* 押すだけで選べる見る範囲：半年・1年・ぜんぶ（片手で使えるように） */
+  const lastDate = new Date(hist[n - 1].date);
+  const presets = h('div', {class: 'filters'}, [['半年', 6], ['1年', 12], ['ぜんぶ', 0]].map(([label, months]) =>
+    h('button', {class: 'chip', type: 'button', 'data-months': String(months), 'aria-pressed': 'false', onclick: () => {
+      S.preset = months;
+      let i0 = 0;
+      if (months) {
+        const from = new Date(lastDate.getFullYear(), lastDate.getMonth() - months, lastDate.getDate());
+        i0 = hist.findIndex(x => new Date(x.date) >= from);
+        i0 = Math.min(Math.max(0, i0), n - 2);
+      }
+      S.range = [i0, n - 1];
+      sliders[0].value = String(i0); sliders[1].value = String(n - 1);
+      redraw();
+    }}, label)));
+  function redraw() {
+    /* 押した範囲のボタンに印（はじめは「ぜんぶ」）。つまみで動かしたら印を外す */
+    if (S.preset === undefined) S.preset = 0;
+    for (const b of presets.children) b.setAttribute('aria-pressed', String(S.preset !== null && +b.dataset.months === S.preset));
+    lab.textContent = md(hist[S.range[0]].date) + ' 〜 ' + md(hist[S.range[1]].date);
+    draw(chart, hist, series);
+  }
+  sect.replaceChildren(...[h('h3', null, '推移（' + n + (monthly ? 'か月ぶん）' : '日ぶん）')), chips, chart, legend, presets,
+    h('div', {class: 'range'}, h('span', null, 'ここから'), sliders[0], h('span', null, 'ここまで'), sliders[1],
+      h('span', null, '見る範囲'), lab)].filter(Boolean));
+  redraw();
+}
+
+function draw(box, hist, series) {
+  const [i0, i1] = S.range;
+  const W = Math.max(280, box.clientWidth || 320), H = 210, m = {l: 56, r: 16, t: 12, b: 26};
+  const invert = S.metric === 'rank';
+  /* 基準価額のグラフでは、買った値段（横の線）と買った日（縦の線）も引く */
+  const sf = S.data && S.sel ? S.data.funds.find(z => z.id === S.sel) : null;
+  const hd = S.metric === 'nav' && sf && sf.hold ? sf.hold : null;
+  const all = series.flatMap(s => s.vals.slice(i0, i1 + 1)).filter(v => v !== null).concat(hd ? [hd.nav] : []);
+  let lo = all.length ? Math.min(...all) : 0, hi = all.length ? Math.max(...all) : 1;
+  if (invert) lo = Math.max(1, lo);
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.08;
+  if (!invert) { lo -= pad; hi += pad; } else { hi += pad; lo = Math.max(1, lo - pad); }
+  const x = i => m.l + (i1 === i0 ? 0 : (i - i0) / (i1 - i0)) * (W - m.l - m.r);
+  const y = v => invert ? m.t + (v - lo) / (hi - lo) * (H - m.t - m.b) : H - m.b - (v - lo) / (hi - lo) * (H - m.t - m.b);
+  const svg = sv('svg', {viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': '推移のグラフ'});
+  const fmtAxis = v => S.metric === 'rank' ? v + '位' : S.metric === 'ret' ? v + '%' : v.toLocaleString('ja-JP');
+  /* 目盛りは、重ならない整数だけ（同じ字が2回出ないように） */
+  const ticks = [...new Set([0, 1, 2, 3].map(k => Math.round(lo + (hi - lo) * k / 3)))].filter(v => v >= lo && v <= hi);
+  for (const v of ticks) {
+    const yy = y(v);
+    svg.append(sv('line', {x1: m.l, x2: W - m.r, y1: yy, y2: yy, stroke: 'var(--line)', 'stroke-width': 1}));
+    const tx = sv('text', {x: m.l - 6, y: yy + 4, 'text-anchor': 'end', fill: 'var(--mute)', 'font-size': 11});
+    tx.textContent = fmtAxis(v); svg.append(tx);
+  }
+  [[i0, 'start'], [i1, 'end']].forEach(([i, anchor]) => {
+    const tx = sv('text', {x: x(i), y: H - 8, 'text-anchor': anchor, fill: 'var(--mute)', 'font-size': 11});
+    tx.textContent = md(hist[i].date); svg.append(tx);
+  });
+  for (const s of series) {
+    let dpath = '', pen = false, last = null;
+    for (let i = i0; i <= i1; i++) {
+      const v = s.vals[i];
+      if (v === null) continue;      /* 抜けている日は飛ばして、前後をつなぐ */
+      dpath += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1);
+      pen = true; last = i;
+    }
+    if (dpath) svg.append(sv('path', {d: dpath, fill: 'none', stroke: s.color, 'stroke-width': 2,
+      'stroke-linejoin': 'round', 'stroke-linecap': 'round'}));
+    if (last !== null) svg.append(sv('circle', {cx: x(last), cy: y(s.vals[last]), r: 4.5, fill: s.color,
+      stroke: 'var(--card)', 'stroke-width': 2}));
+  }
+  if (hd) {
+    const yy = y(hd.nav);
+    svg.append(sv('line', {x1: m.l, x2: W - m.r, y1: yy, y2: yy, stroke: 'var(--heart)', 'stroke-width': 1.5, 'stroke-dasharray': '5 4'}));
+    const tx = sv('text', {x: W - m.r, y: yy - 5, 'text-anchor': 'end', fill: 'var(--heart)', 'font-size': 11});
+    tx.textContent = '買った値段'; svg.append(tx);
+    const bi = hd.day ? hist.findIndex(z => z.date >= hd.day) : -1;
+    if (bi >= i0 && bi <= i1) {
+      svg.append(sv('line', {x1: x(bi), x2: x(bi), y1: m.t, y2: H - m.b, stroke: 'var(--heart)', 'stroke-width': 1, 'stroke-dasharray': '3 3'}));
+      const t2 = sv('text', {x: x(bi) + 4, y: m.t + 10, fill: 'var(--heart)', 'font-size': 11});
+      t2.textContent = '買った日'; svg.append(t2);
+    }
+  }
+  const cross = sv('line', {y1: m.t, y2: H - m.b, stroke: 'var(--ink2)', 'stroke-width': 1, visibility: 'hidden'});
+  svg.append(cross);
+  const tip = h('div', {class: 'tip', hidden: true});
+  const move = e => {
+    const r = svg.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width * W;
+    const i = Math.max(i0, Math.min(i1, Math.round(i0 + (px - m.l) / (W - m.l - m.r) * (i1 - i0))));
+    cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('visibility', 'visible');
+    tip.replaceChildren(h('div', {class: 'd'}, hist[i].date.replace(/-/g, '/')), ...series.map(s => {
+      const key = h('i'); key.style.background = s.color;
+      return h('div', null, key, h('b', null, s.vals[i] === null ? '—' : s.fmt(s.vals[i])), ' ' + s.label);
+    }));
+    tip.hidden = false;
+    const left = x(i) / W * r.width;
+    tip.style.left = (left > r.width / 2 ? Math.max(0, left - tip.offsetWidth - 10) : left + 10) + 'px';
+  };
+  svg.addEventListener('pointermove', move);
+  svg.addEventListener('pointerdown', move);
+  svg.addEventListener('pointerleave', () => { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); });
+  box.replaceChildren(svg, tip);
+}
+
+/* ==== 初心者向けの読み方（2026-10-01）====
+   投資初心者にあるとよい項目を、まとめて足した。
+   荒さの目安・円での言い換え・型の印・同じ中身のなかま・なりたち・買った値段・月ごとの増減・表・地図・今月の動き・数字の読み方 */
+
+/* 値動きの荒さ（年率の標準偏差 %）。ファンドのページの本物（risk.s）があればそれ。
+   無ければ「増え方 ÷ 効率」で目安を出す（みんかぶの効率＝（増え方−ごく小さい利子）÷荒さ なので、目安は本物より数%大きめ）。
+   効率が0に近いと割り算が暴れるので、効率の大きさが0.3未満なら出さない。est＝目安かどうか */
+function roughOf(f, k = '12') {
+  const R = f.risk || {}, s = R.s ? R.s[k] : null;
+  if (has(s)) return {v: s, est: false};
+  if (f.pmis && f.pmis.includes(k)) return null;      /* 増え方と効率が別の月（月が替わってランキングだけ取り込んだあいだ）は割らない */
+  const r = f.r ? f.r[k] : null, p = R.p ? R.p[k] : null;
+  if (!has(r) || !has(p) || Math.abs(p) < 0.3) return null;
+  const v = r / p;
+  return v > 0 && v <= 200 ? {v, est: true} : null;
+}
+const roughShort = o => o.est ? '約' + Math.round(o.v) + '%' : o.v.toFixed(1) + '%';
+/* 円の言い方：1万円から上は「1.9万円」「19万円」、下は「9,000円」 */
+function manYen(v) {
+  const a = Math.abs(v);
+  if (a >= 10000) return (a >= 100000 ? Math.round(a / 10000) : Math.round(a / 1000) / 10).toLocaleString('ja-JP') + '万円';
+  return Math.round(a).toLocaleString('ja-JP') + '円';
+}
+/* 名前と決算回数から分かる型（2倍・3倍型は f.lev＝サーバーの is_leveraged） */
+const isMonthly = f => /毎月/.test(f.name || '') || !!(f.info && f.info.settle === '毎月');
+const isHedged = f => { const n = norm(f.name); return /ヘッジあり|ヘッジ付|ヘッジ有|ヘッジ型/.test(n) && !/ヘッジなし/.test(n); };
+const today0 = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+const parseDay = s => { const m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(s || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
+const monthsBetween = (a, b) => (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()) - (b.getDate() < a.getDate() ? 1 : 0);
+const spanWords = n => { const y = Math.floor(n / 12), m = n % 12; return (y ? y + '年' : '') + (m || !y ? m + 'か月' : ''); };
+function ageOf(f) {
+  const d = f.info ? parseDay(f.info.setup) : null;
+  if (!d) return null;
+  const n = Math.max(0, monthsBetween(d, today0()));
+  return {n, text: spanWords(n)};
+}
+function untilOf(f) {
+  const u = f.info ? f.info.until : null;
+  if (!u) return null;
+  if (u === 'none') return {none: true, text: '無期限'};
+  const d = parseDay(u);
+  if (!d) return null;
+  const n = monthsBetween(today0(), d);
+  return {n, text: u.replace(/-/g, '/'), left: n < 0 ? 'もう終わっています' : 'あと' + spanWords(n), near: n <= 24};
+}
+/* 常連：3か月以上つづけて、その期間のランキングに居る（2か月では付けない） */
+const stayOf = f => { const st = maxOf(f.stay); return st && st.n >= 3 ? st : null; };
+/* NISA では買えないはずの型（制度の決まり：2倍・3倍型・毎月分配型）。みんかぶの NISA の印があれば、そちらを信じる */
+const nisaOut = f => !(f.nisa && f.nisa.length) && (f.lev || isMonthly(f));
+/* {期間: か月} のうち、いちばん長いもの */
+const maxOf = o => Object.entries(o || {}).reduce((best, [k, n]) => (!best || n > best.n ? {k, n} : best), null);
+/* 老後シミュレーター（同じ PC の別のアプリの /rougo）。この画面と同じ PC の、ポートだけ違う所。ポートは localStorage の rougoPort で変える */
+const rougoBase = () => { let p = ''; try { p = localStorage.getItem('rougoPort') || ''; } catch (e) {} return location.protocol + '//' + location.hostname + ':' + (p || '8030') + '/rougo'; };
+
+/* くわしい面の上の印 */
+function badgesOf(f) {
+  const b = [];
+  if (f.lev) b.push(['2倍・3倍型', 'bad']);
+  if (isMonthly(f)) b.push(['毎月分配', 'warn']);
+  if (isHedged(f)) b.push(['為替ヘッジあり', 'info']);
+  const st = stayOf(f);
+  if (st) b.push([TLABEL[st.k] + 'のランキングに' + st.n + 'か月続けて', 'info']);
+  const dn = maxOf(f.down);
+  if (dn) b.push([dn.n + 'か月続けて順位が下がっている（' + TLABEL[dn.k] + '）', 'bad']);
+  const age = ageOf(f);
+  if (age && age.n < 36) b.push(['できて' + age.text, 'warn']);
+  const u = untilOf(f);
+  if (u && !u.none && u.near) b.push([u.n < 0 ? '信託期間の終わりを過ぎています' : 'あと' + spanWords(u.n) + 'で終わる予定', 'bad']);
+  return b;
+}
+
+/* 新しいファンド・最近だけ伸びたファンドの見分け（期間の帯の下に1行） */
+function newNote(f) {
+  const out = [];
+  const age = ageOf(f);
+  const taken = (S.data.taken || {})[f.id] === S.data.period;
+  if (!has(f.r['36']) && (age ? age.n < 36 : taken && has(f.r['12']))) {
+    out.push((age ? 'できてから' + age.text + 'のファンドです。' : '')
+      + '3年の成績はまだありません（できて3年たっていないファンドに多い）。悪い時期をくぐった数字が、まだ無いということです。');
+  }
+  if (['3', '6'].some(k => has(f.t[k])) && bound('36') >= 100 && rankOf(f, '36') === null && has(f.r['36'])) {
+    out.push('3ヶ月・6ヶ月では上位ですが、3年では上位' + bound('36') + '位に入っていません（最近だけ伸びた、ということもあります）。');
+  }
+  return out.length ? h('div', {class: 'hint', id: 'new-note'}, out.join('')) : null;
+}
+
+/* 100万円で考えると：ふだんのぶれ・毎年の報酬・買うときの手数料・分配金 */
+function yenBlock(f) {
+  const rows = [];
+  const ro = roughOf(f, '12') || roughOf(f, '36');
+  if (ro) rows.push(['ふだんの1年のぶれ', '±' + manYen(ro.v * 10000),
+    (ro.est ? '荒さ' + roughShort(ro) + 'は目安です。' : '') + '3年に1回くらいは、それより大きく動きます。']);
+  if (has(f.fee)) rows.push(['毎年かかる信託報酬', '約' + manYen(f.fee * 10000),
+    '10年で約' + manYen(f.fee * 100000) + '（増えた分にもかかるので、増えればもう少し多い）']);
+  const i = f.info || {};
+  if (has(i.buy_fee)) rows.push(['買うときの手数料', i.buy_fee ? '最大 ' + manYen(i.buy_fee * 10000) : 'なし',
+    i.buy_fee ? '上限・税込。ネット証券では0円のことが多い' : '']);
+  if (has(i.dist_year) && i.dist_year > 0 && has(f.nav)) rows.push(['1年の分配金', '約' + manYen(i.dist_year / f.nav * 1e6),
+    '払い出した分だけ基準価額が下がります（増えたわけではありません）']);
+  if (!rows.length) return null;
+  return h('div', {class: 'sect', id: 'yen100'}, h('h3', null, '100万円で考えると'),
+    h('div', {class: 'yen'}, rows.map(([k, v, sub]) => h('div', {class: 'yrow'}, h('span', {class: 'yk'}, k), h('span', {class: 'yv'}, v),
+      sub ? h('span', {class: 'ys'}, sub) : null)),
+      h('div', {class: 'foot'}, 'どれも過去の数字からの目安です。この先を約束するものではありません。')));
+}
+
+/* 買った値段：書くと「買ってから +◯%」「30万円 → 約32.5万円」。保存はサーバー（Edge と Safari で同じに見える）。書いたら♡にも入る */
+function holdBlock(f) {
+  const hd = f.hold;
+  const num = v => { const t = String(v || '').normalize('NFKC').replace(/[,円\s]/g, ''); return t === '' ? null : (isFinite(+t) ? +t : NaN); };
+  const day = h('input', {type: 'date', value: hd && hd.day ? hd.day : '', max: isoDay(new Date()), 'aria-label': '買った日'});
+  const navIn = h('input', {type: 'text', inputmode: 'decimal', value: hd ? String(hd.nav) : '', autocomplete: 'off',
+    placeholder: has(f.nav) ? '例 ' + Math.round(f.nav) : '例 11263', 'aria-label': '買ったときの基準価額'});
+  const yenIn = h('input', {type: 'text', inputmode: 'numeric', value: hd && hd.yen ? String(hd.yen) : '', autocomplete: 'off',
+    placeholder: '例 300000', 'aria-label': '買った金額'});
+  const msg = h('div', {class: 'hint', id: 'hold-msg', role: 'status'});
+  const save = async () => {
+    const nav = num(navIn.value), yen = num(yenIn.value);
+    if (!nav || isNaN(nav)) { msg.textContent = '買ったときの基準価額を、数字で入れてください（例 11263）。'; return; }
+    if (isNaN(yen)) { msg.textContent = '買った金額は、数字で入れてください（なくてもよい）。'; return; }
+    const out = await api('/api/holding', {id: f.id, nav, day: day.value || null, yen});
+    if (!out) { msg.textContent = '保存できませんでした。もう一度押してください。'; return; }
+    await load();
+  };
+  /* 消すは2回押し（1回目で「もう一度押すと消えます」。4秒たつと戻る） */
+  const del = async e => {
+    const b = e.currentTarget;
+    if (!b.dataset.sure) {
+      b.dataset.sure = '1'; b.textContent = 'もう一度押すと消えます';
+      setTimeout(() => { if (b.isConnected) { delete b.dataset.sure; b.textContent = '消す'; } }, 4000);
+      return;
+    }
+    if (await api('/api/holding', {id: f.id, remove: true})) await load();
+  };
+  const form = h('div', null,
+    h('div', {class: 'form'},
+      h('label', null, '買った日（なくてもよい）', day),
+      h('label', null, '買ったときの基準価額（1万口あたり・円）', navIn),
+      h('label', null, '買った金額（円・なくてもよい）', yenIn)),
+    h('div', {class: 'chunks'},
+      h('button', {class: 'btn main', type: 'button', id: 'hold-save', onclick: save}, hd ? 'なおす' : '書いておく'),
+      has(f.nav) ? h('button', {class: 'btn', type: 'button', onclick: () => {
+        navIn.value = String(f.nav);
+        if (!day.value && f.nav_date) day.value = f.nav_date;
+      }}, 'いまの基準価額を入れる') : null,
+      hd ? h('button', {class: 'btn', type: 'button', id: 'hold-del', onclick: del}, '消す') : null),
+    msg);
+  if (!hd) {
+    return h('details', {class: 'how', id: 'hold'}, h('summary', null, '買った値段を書いておく（買ってからの増え方が出ます）'),
+      h('p', {class: 'hint'}, '証券会社の画面の「平均取得単価」が、1万口あたりの基準価額です。書いたファンドは♡にも入ります。'), form);
+  }
+  const chg = has(f.nav) ? (f.nav / hd.nav - 1) * 100 : null;
+  const ro = roughOf(f, '12') || roughOf(f, '36');
+  const since = parseDay(hd.day);
+  return h('div', {class: 'sect', id: 'hold'}, h('h3', null, '買った値段'),
+    h('div', {class: 'hold'},
+      h('div', {class: 'k'}, '買ってから' + (since ? '（' + hd.day.replace(/-/g, '/') + '・' + spanWords(Math.max(0, monthsBetween(since, today0()))) + '）' : '')),
+      h('div', {class: 'hbig ' + (has(chg) && chg < 0 ? 'down' : 'up'), id: 'hold-chg'}, has(chg) ? pct1(chg) : '—'),
+      hd.yen && has(chg) ? h('div', null, manYen(hd.yen) + ' → 約' + manYen(hd.yen * (1 + chg / 100))
+        + '（' + (chg >= 0 ? '+' : '−') + manYen(hd.yen * chg / 100) + '）') : null,
+      h('div', {class: 'hint'}, '買ったとき ' + yen(hd.nav) + ' → いま' + (f.nav_date ? '（' + md(f.nav_date) + '）' : '') + ' ' + yen(f.nav)
+        + '（1万口あたり。いまは取り込んだ日の値段。基準価額でくらべるので、分配金と手数料は入りません）'),
+      distNote(f, hd),
+      ro ? h('div', {class: 'hint'}, '1年のぶれの目安：±' + Math.round(ro.v) + '%' + (ro.est ? '（逆算）' : '')) : null),
+    h('details', {class: 'how'}, h('summary', null, '書きなおす・消す'), form));
+}
+
+/* 分配金のあるファンドは、「買ってから」の％に受け取った分配金が入っていないことを、ふつうの字で */
+function distNote(f, hd) {
+  const dy = f.info ? f.info.dist_year : null;
+  if (has(dy) && dy > 0) {
+    return h('div', {class: 'dist-note', id: 'dist-note'}, '受け取った分配金は、この％に入っていません'
+      + (hd.yen ? '（このファンドの分配金は、1年で約' + manYen(hd.yen / hd.nav * dy) + 'の目安）。' : '（1年で1万口あたり ' + dy.toLocaleString('ja-JP') + '円）。'));
+  }
+  if (isMonthly(f)) return h('div', {class: 'dist-note', id: 'dist-note'}, '毎月分配型なので、受け取った分配金はこの％に入っていません。');
+  return null;
+}
+
+/* 月ごとの増減：♡と買った値段のあるファンドの、取り込んだ月ごとの基準価額（サーバーの navm）。2か月そろうまでは出さない */
+function navmBlock(f) {
+  if (!(S.stars.has(f.id) || f.hold)) return null;
+  const m = f.navm || [];
+  if (m.length < 2) return null;
+  const rows = m.map((x, i) => [x[0], x[1], i ? (x[1] / m[i - 1][1] - 1) * 100 : null]).reverse();
+  const first = m[0], last = m[m.length - 1];
+  return h('div', {class: 'sect', id: 'navm'}, h('h3', null, '月ごとの増減（取り込んだ日の基準価額）'),
+    h('table', {class: 'mtab'},
+      h('thead', null, h('tr', null, h('th', null, '日'), h('th', null, '基準価額'), h('th', null, '前の月から'))),
+      h('tbody', null, rows.map(([d, v, c]) => h('tr', null, h('td', null, d.replace(/-/g, '/')), h('td', null, yen(v)),
+        h('td', {class: has(c) ? (c >= 0 ? 'up' : 'down') : null}, has(c) ? pct1(c) : '—'))))),
+    h('div', {class: 'hint'}, md(first[0]) + ' から ' + md(last[0]) + ' で ' + pct1((last[1] / first[1] - 1) * 100) + '（分配金は入りません）'));
+}
+
+/* なりたち：比較のページの「設定日」「信託期間」「決算回数」「分配金」「手数料」「RR分類」 */
+function infoBlock(f) {
+  const i = f.info;
+  if (!i) return null;
+  const age = ageOf(f), u = untilOf(f);
+  const stat = (k, v, sub, wide) => h('div', {class: 'stat' + (wide ? ' wide' : '')}, h('div', {class: 'k'}, k), h('div', {class: 'v'}, v),
+    sub ? h('div', {class: 'k'}, sub) : null);
+  return h('div', {class: 'sect', id: 'info'}, h('h3', null, 'なりたち（比較のページから）'), h('div', {class: 'stats'}, [
+    i.setup ? stat('できた日', i.setup.replace(/-/g, '/'), age ? 'できてから' + age.text : null) : null,
+    u ? stat('終わる日（信託期間）', u.text, u.none ? 'ずっと続く' : u.left) : null,
+    i.settle ? stat('決算', i.settle, has(i.dist_year) ? '1年の分配金 ' + i.dist_year.toLocaleString('ja-JP') + '円（1万口）' : null) : null,
+    has(i.buy_fee) ? stat('買うときの手数料', i.buy_fee ? '最大 ' + i.buy_fee + '%' : 'なし', i.buy_fee ? 'ネット証券では0円のことも' : null) : null,
+    i.rr ? stat('みんかぶの分類', i.rr, null, true) : null].filter(Boolean)));
+}
+
+/* 同じ中身のなかま：名前から、同じ指数に連動していそうなファンドを集める（名前で見分けるだけの目安）。
+   2倍・3倍型・高配当などの別の作りは外し、為替ヘッジあり・毎月分配は別の組にする */
+const GROUPS = [
+  ['S&P500', /s&p ?500/], ['全世界の株', /オール.?カントリー|全世界株|acwi/], ['先進国の株', /先進国株/], ['新興国の株', /新興国株/],
+  ['日経平均', /日経225|日経平均|nikkei ?225/], ['TOPIX', /topix/], ['NASDAQ100', /nasdaq ?100|ナスダック ?100/], ['FANG+', /fang\+/],
+  ['NYダウ', /nyダウ|ダウ.?ジョーンズ工業|ダウ平均/], ['インドの株', /インド(?!ネシア)/], ['半導体の株', /半導体|sox/],
+  ['金（ゴールド）', /ゴールド(?!マン)|純金/]];
+const NOT_PLAIN = /高配当|配当|バリュー|グロース|esg|除く|ダブル|インバース|トップ|上位|厳選|均等|ベア|ブル|戦略|フォーカス|オーナーズ|小型|中小型|メタル|金鉱|これ1本|アクティブ|セレクト|テーマ/;
+/* インデックス型らしい名前（「インデックス」「指数」か、インデックス型のシリーズ名） */
+const INDEXISH = /インデックス|index|指数|emaxis|たわら|ニッセイ|ifree|sbi・v|楽天・|つみたて|手数料なし|slim|ノーロード/;
+function groupOf(f) {
+  if (f.lev) return null;
+  const n = norm(f.name);
+  const g = GROUPS.find(([, re]) => re.test(n));
+  if (!g || NOT_PLAIN.test(n) || !INDEXISH.test(n)) return null;
+  const sub = [isHedged(f) ? '為替ヘッジあり' : '', isMonthly(f) ? '毎月分配' : ''].filter(Boolean);
+  return {key: g[0] + '|' + sub.join('|'), label: g[0] + (sub.length ? '（' + sub.join('・') + '）' : '')};
+}
+function matesBlock(f) {
+  const g = groupOf(f);
+  if (!g) return null;
+  const all = S.data.funds.filter(x => { const y = groupOf(x); return y && y.key === g.key; })
+    .sort((a, b) => (has(a.fee) ? a.fee : 99) - (has(b.fee) ? b.fee : 99));
+  if (all.length < 2) return null;
+  const pos = all.findIndex(x => x.id === f.id);
+  const shown = all.slice(0, 5);
+  if (pos >= 5) shown.push(f);
+  const fees = all.filter(x => has(x.fee)).map(x => x.fee);
+  const maxFee = Math.max(...fees, 0.01);
+  return h('div', {class: 'sect', id: 'mates'}, h('h3', null, '同じ指数のインデックス型：' + g.label + '（' + all.length + '本）'),
+    h('p', {class: 'hint'}, '取り込んだファンドの中から、名前で同じ指数に連動していそうなインデックス型を集めて、信託報酬の安い順に並べました。'
+      + '同じ指数に連動するなら増え方は近く、違いは主に毎年の費用です（1年の数字でくらべられます）。'
+      + (/S&P500|日経平均|TOPIX|NASDAQ100|FANG\+|NYダウ/.test(g.label) ? '' : '「' + g.label.replace(/（.*/, '') + '」は、ファンドによって使う指数が違うことがあります。')
+      + (fees.length > 1 ? '報酬は ' + Math.min(...fees) + '%〜' + Math.max(...fees) + '%。' : '')
+      + (pos >= 0 ? '取り込んだ中で、このファンドは安いほうから' + (pos + 1) + '番目です。' : '')),
+    h('div', {class: 'mates'}, shown.map(x => {
+      const bar = h('div', {class: 'feebar'}, h('i'));
+      bar.firstChild.style.width = (has(x.fee) ? Math.max(3, x.fee / maxFee * 100) : 0) + '%';
+      return h('button', {class: 'mate' + (x.id === f.id ? ' me' : ''), type: 'button', 'data-id': x.id,
+        onclick: () => { if (x.id !== f.id) selectFund(x.id); }},
+        h('span', {class: 'mn'}, (x.id === f.id ? 'いま見ている：' : '') + x.name),
+        h('span', {class: 'mf'}, has(x.fee) ? x.fee + '%' : '—'),
+        bar,
+        h('span', {class: 'ms'}, [x.co, has(x.r['12']) ? '1年 ' + pct1(x.r['12']) : null,
+          has(x.fee) ? '100万円で年 約' + manYen(x.fee * 10000) : null].filter(Boolean).join('・')));
+    })),
+    h('div', {class: 'hint'}, '名前から見分けているので、似た名前でも中身が違うことがあります。'));
+}
+
+/* しぼりこみ中の帯：効いている絞り込みを並べ、「ぜんぶ外す」で戻す */
+function renderFiltOn() {
+  const on = [[S.noLev, '2倍・3倍型を外す'], [S.lowFee, '報酬1%以下'], [S.lowRough, '値動き ふつうまで'], [S.effOne, '効率1以上'],
+    [S.star4, '★4以上'], [S.onlyNisa, 'NISAで買える'], [S.onlyStar && S.tab !== 'star', '♡だけ']].filter(x => x[0]).map(x => x[1]);
+  const box = $('#filt-on');
+  box.hidden = !on.length || !any(S.data);
+  if (box.hidden) return;
+  box.replaceChildren(h('span', null, 'しぼりこみ中：' + on.join('・')), h('button', {class: 'btn', type: 'button', id: 'filt-clear', onclick: () => {
+    S.noLev = S.lowFee = S.lowRough = S.effOne = S.star4 = S.onlyNisa = S.onlyStar = false;
+    keep(); render();
+  }}, 'ぜんぶ外す'));
+}
+
+/* 荒さ・効率で絞っているときの一言（分かるファンドが限られるため） */
+function filterNote() {
+  if (!S.data || !(S.lowRough || S.effOne)) return '';
+  const n = S.data.funds.filter(f => roughOf(f) || (f.risk && f.risk.p && has(f.risk.p['12']))).length;
+  return '（荒さ・効率で絞るときは、それが分かる ' + n + '本の中から選んでいます。比較のページで取ると増えます）';
+}
+
+/* ---- 見せ方：並び・表・地図 ---- */
+const VIEWS = [['list', '並び'], ['table', '表'], ['map', '地図']];
+function renderViewBar() {
+  const bar = $('#viewbar');
+  bar.hidden = !any(S.data);
+  if (bar.hidden) return;
+  bar.replaceChildren(...[
+    h('div', {class: 'seg', role: 'group', 'aria-label': '見せ方'}, VIEWS.map(([k, label]) => h('button', {type: 'button', 'data-view': k,
+      'aria-pressed': String(S.view === k), onclick: () => { S.view = k; S.mapSel = null; keep(); render(); }}, label))),
+    h('span', {class: 'grow'}),
+    S.view === 'table' ? h('button', {class: 'btn pc-only', type: 'button', id: 'btn-print', onclick: () => window.print()}, '印刷する') : null,
+    h('button', {class: 'btn', type: 'button', id: 'btn-moves', onclick: openMoves}, '今月の動き'),
+    h('button', {class: 'btn icon', type: 'button', id: 'btn-help', 'aria-label': '数字の読み方', title: '数字の読み方', onclick: openHelp}, '？')]
+    .filter(Boolean));
+}
+
+/* 表：列の名前を押すと、その順に並べかえ（もう一度押すと逆）。分からない数字はいつも下 */
+const nisaShort = f => f.nisa && f.nisa.length ? f.nisa.map(x => /つみたて/.test(x) ? 'つみたて' : '成長').join('・') : (f.nisa ? 'なし' : '—');
+const effOf = f => (f.risk && f.risk.p ? f.risk.p['12'] : null);
+const TABLE_COLS = [
+  {k: 't3', label: '3ヶ月', val: f => rankOf(f, '3'), show: f => rankLabel(f, '3').text, dir: 1},
+  {k: 't6', label: '6ヶ月', val: f => rankOf(f, '6'), show: f => rankLabel(f, '6').text, dir: 1},
+  {k: 't12', label: '1年', val: f => rankOf(f, '12'), show: f => rankLabel(f, '12').text, dir: 1},
+  {k: 't36', label: '3年', val: f => rankOf(f, '36'), show: f => rankLabel(f, '36').text, dir: 1},
+  {k: 'r12', label: '1年の増え方', val: f => f.r['12'], show: f => pct1(f.r['12']), dir: -1, color: true},
+  {k: 'r36', label: '3年（年率）', val: f => f.r['36'], show: f => pct1(f.r['36']), dir: -1, color: true},
+  {k: 'r60', label: '5年（年率）', val: f => f.r['60'], show: f => pct1(f.r['60']), dir: -1, color: true},
+  {k: 'rough', label: '荒さ', val: f => { const o = roughOf(f); return o ? o.v : null; },
+    show: f => { const o = roughOf(f); return o ? roughShort(o) : '—'; }, dir: 1},
+  {k: 'eff', label: '効率', val: effOf, show: f => has(effOf(f)) ? effOf(f).toFixed(2) : '—', dir: -1},
+  {k: 'fee', label: '信託報酬', val: f => f.fee, show: f => has(f.fee) ? f.fee + '%' : '—', dir: 1},
+  {k: 'rate', label: '評価', val: f => f.rate || null, show: f => f.rate ? '★'.repeat(f.rate) : '—', dir: -1},
+  {k: 'nisa', label: 'NISA', val: f => (f.nisa ? f.nisa.length : null), show: nisaShort, dir: -1}];
+function renderTable(info) {
+  const box = $('#list');
+  let rows = info.rows.map((r, i) => ({f: r.f, no: S.tab === 'avg' ? i + 1 : r.rank}));
+  const col = S.sort && TABLE_COLS.find(c => c.k === S.sort.k);
+  if (col) {
+    const d = S.sort.d;
+    rows = rows.slice().sort((a, b) => {
+      const x = col.val(a.f), y = col.val(b.f);
+      if (!has(x) || !has(y)) return (has(x) ? -1 : has(y) ? 1 : 0) || a.no - b.no;
+      return (x - y) * d || a.no - b.no;
+    });
+  }
+  const head = h('tr', null,
+    h('th', {class: 'no'}, h('button', {type: 'button', 'aria-label': 'もとの順にもどす', onclick: () => { S.sort = null; keep(); renderList(); }},
+      '順', col ? '' : ' ▲')),
+    h('th', {class: 'nm2'}, '名前'),
+    TABLE_COLS.map(c => {
+      const on = !!(col && col.k === c.k);
+      return h('th', {'data-col': c.k, 'aria-sort': on ? (S.sort.d > 0 ? 'ascending' : 'descending') : null},
+        h('button', {type: 'button', onclick: () => { S.sort = {k: c.k, d: on ? -S.sort.d : c.dir}; keep(); renderList(); }},
+          c.label, on ? (S.sort.d > 0 ? ' ▲' : ' ▼') : ''));
+    }));
+  const body = rows.map(({f, no}) => h('tr', {'data-id': f.id, class: S.sel === f.id ? 'on' : null, onclick: () => selectFund(f.id)},
+    h('td', {class: 'no'}, no),
+    h('td', {class: 'nm2'}, h('div', {class: 'n'}, (S.stars.has(f.id) ? '♥ ' : '') + f.name), h('div', {class: 'sub'}, f.co || '')),
+    TABLE_COLS.map(c => {
+      const v = c.val(f);
+      return h('td', {class: !has(v) ? 'na' : c.color ? (v >= 0 ? 'up' : 'down') : null}, c.show(f));
+    })));
+  const tab = TLABEL[S.tab] + (S.tab === 'avg' ? '（' + S.avg.map(k => TLABEL[k]).join('・') + '）' : '');
+  box.replaceChildren(
+    h('div', {class: 'print-head'}, '投資信託ランキング｜' + tab + '｜' + $('#asof').textContent + '｜' + isoDay(new Date()) + ' 印刷'),
+    h('div', {class: 'tablewrap'}, h('table', {class: 'grid', id: 'grid'}, h('thead', null, head), h('tbody', null, body))),
+    h('div', {class: 'hint tnote'}, '列の名前を押すと、その順に並びます（もう一度押すと逆）。「順」で元の並び。荒さの「約」は目安です。'));
+}
+
+/* 地図：横＝値動きの荒さ（1年）、縦＝1年の増え方。斜めの点線が効率1（これより上は、荒さの割によく増えた）。
+   いま一覧に出ているファンド（絞り込み・タブが効く）のうち、荒さが分かるものだけ。はみ出す点は端に寄せて点線の輪を付ける */
+function renderMap(info) {
+  const box = $('#list');
+  const pts = info.rows.map(r => {
+    const o = roughOf(r.f, '12');
+    return o && has(r.f.r['12']) ? {f: r.f, x: o.v, est: o.est, y: r.f.r['12']} : null;
+  }).filter(Boolean);
+  if (!pts.length) {
+    box.replaceChildren(h('div', {class: 'empty'}, '地図に出せるファンドがありません。荒さ（または効率）と1年の増え方がそろったファンドだけが出ます。'
+      + '取り込みの面の「まとめて取る」で比較のページを取り込むと入ります。'));
+    return;
+  }
+  const W = Math.max(300, Math.min(1100, (box.clientWidth || 360) - 26)), H = Math.round(Math.min(480, Math.max(300, W * 0.75)));
+  const m = {l: 48, r: 12, t: 24, b: 30};
+  const qt = (arr, q) => { const z = arr.slice().sort((a, b) => a - b); return z[Math.round(q * (z.length - 1))]; };
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  const xHi = Math.max(25, Math.ceil(qt(xs, 0.95) * 1.15 / 5) * 5);
+  const yLo = Math.min(0, Math.floor(qt(ys, 0.02) / 10) * 10), yHi = Math.max(10, Math.ceil(qt(ys, 0.97) * 1.1 / 10) * 10);
+  const X = v => m.l + Math.max(0, Math.min(v, xHi)) / xHi * (W - m.l - m.r);
+  const Y = v => m.t + (yHi - Math.max(yLo, Math.min(yHi, v))) / (yHi - yLo) * (H - m.t - m.b);
+  const svg = sv('svg', {viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': '値動きの荒さと1年の増え方の地図', id: 'map'});
+  const text = (x, y, str, attrs) => { const t = sv('text', Object.assign({x, y, 'font-size': 11, fill: 'var(--mute)'}, attrs || {})); t.textContent = str; return t; };
+  /* 荒さの帯は1色の濃淡（右ほど濃い）。期間の色とは混ぜない */
+  for (const [a, b, label, op] of [[0, 10, 'おだやか', 0.02], [10, 20, 'ふつう', 0.05], [20, 35, '荒め', 0.09], [35, 1e9, 'とても荒い', 0.14]]) {
+    if (a >= xHi) continue;
+    const x0 = X(a), x1 = X(Math.min(b, xHi));
+    svg.append(sv('rect', {x: x0, y: m.t, width: Math.max(0, x1 - x0), height: H - m.t - m.b, fill: '#b9a5ff', 'fill-opacity': op}));
+    if (x1 - x0 >= label.length * 11 + 4) svg.append(text((x0 + x1) / 2, m.t - 8, label, {'text-anchor': 'middle', fill: 'var(--ink2)', 'font-weight': 700}));
+  }
+  const step = (span, list) => list.find(s => span / s <= 6) || list[list.length - 1];
+  const ys0 = step(yHi - yLo, [5, 10, 20, 25, 50, 100, 200, 500]);
+  for (let v = Math.ceil(yLo / ys0) * ys0; v <= yHi; v += ys0) {
+    svg.append(sv('line', {x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: v === 0 ? 'var(--axis)' : 'var(--line)', 'stroke-width': v === 0 ? 1.5 : 1}));
+    svg.append(text(m.l - 6, Y(v) + 4, (v > 0 ? '+' : '') + v + '%', {'text-anchor': 'end'}));
+  }
+  const xs0 = step(xHi, [5, 10, 20, 50]);
+  for (let v = 0; v <= xHi; v += xs0) svg.append(text(X(v), H - m.b + 16, v + '%', {'text-anchor': 'middle'}));
+  /* 効率1の線（増え方＝荒さ）。この線より上のファンドは、荒さの割によく増えた */
+  const t1 = Math.min(xHi, yHi);
+  if (yLo <= 0) {
+    svg.append(sv('line', {x1: X(0), y1: Y(0), x2: X(t1), y2: Y(t1), stroke: 'var(--ink2)', 'stroke-width': 1.5, 'stroke-dasharray': '6 5'}));
+    svg.append(text(X(t1) - 4, Y(t1) + 14, '効率1', {'text-anchor': 'end', fill: 'var(--ink2)'}));
+  }
+  const color = f => S.stars.has(f.id) ? 'var(--heart)' : f.lev ? 'var(--t6)' : 'var(--accent)';
+  const ordered = pts.slice().sort((a, b) => (S.stars.has(a.f.id) ? 1 : 0) - (S.stars.has(b.f.id) ? 1 : 0) || (a.f.id === S.mapSel) - (b.f.id === S.mapSel));
+  for (const p of ordered) {
+    const cx = X(p.x), cy = Y(p.y), on = p.f.id === S.mapSel, star = S.stars.has(p.f.id);
+    const out = p.x > xHi || p.y > yHi || p.y < yLo;
+    const g = sv('g', {class: 'pt', 'data-id': p.f.id, tabindex: '0', role: 'button', 'aria-label': p.f.name});
+    g.append(sv('circle', {cx, cy, r: 13, fill: 'transparent'}));
+    if (out) g.append(sv('circle', {cx, cy, r: 9, fill: 'none', stroke: color(p.f), 'stroke-dasharray': '2 2'}));
+    g.append(sv('circle', {cx, cy, r: on ? 7.5 : star ? 6.5 : 5, fill: color(p.f), 'fill-opacity': on ? 1 : 0.85,
+      stroke: on ? '#fff' : 'var(--card)', 'stroke-width': on ? 2.5 : 1.5}));
+    g.addEventListener('keydown', e => { if (e.key === 'Enter') { S.mapSel = p.f.id; renderList(); } });
+    svg.append(g);
+  }
+  /* 指で押したときは、押した所にいちばん近い点（点が重なっていても選べるように） */
+  svg.addEventListener('click', e => {
+    const r = svg.getBoundingClientRect(), k = W / r.width;
+    const px = (e.clientX - r.left) * k, py = (e.clientY - r.top) * k;
+    let best = null;
+    for (const p of pts) { const d = Math.hypot(X(p.x) - px, Y(p.y) - py); if (!best || d < best.d) best = {p, d}; }
+    if (best && best.d <= 40) { S.mapSel = best.p.f.id; renderList(); }
+  });
+  const key = (c, label, cls) => { const i = h('i', {class: cls || 'dot'}); if (!cls) i.style.background = c; return h('span', null, i, label); };
+  const sp = pts.find(p => p.f.id === S.mapSel);
+  /* 選んだ点のすぐ近くにある点（重なって押しにくいもの）を3本まで */
+  const nearOf = c => {
+    const near = pts.filter(p => p !== c).map(p => ({p, d: Math.hypot(X(p.x) - X(c.x), Y(p.y) - Y(c.y))}))
+      .filter(x => x.d <= 26).sort((a, b) => a.d - b.d).slice(0, 3);
+    return near.length ? h('div', {class: 'near'}, h('span', {class: 'hint'}, 'すぐ近くの点'), near.map(({p}) =>
+      h('button', {class: 'chip', type: 'button', onclick: () => { S.mapSel = p.f.id; renderList(); }}, p.f.name))) : null;
+  };
+  const card = sp ? h('div', {class: 'mapcard', id: 'map-card'},
+    h('div', {class: 's'}, h('b', null, sp.f.name), h('br'),
+      '荒さ ' + roughShort({v: sp.x, est: sp.est}) + '（' + roughWord(sp.x) + '）・1年 ' + pct1(sp.y)
+        + (has(effOf(sp.f)) ? '・効率 ' + effOf(sp.f).toFixed(2) : '')
+        + (sp.x > xHi || sp.y > yHi || sp.y < yLo ? '（地図の端に寄せています）' : '')),
+    h('button', {class: 'btn main', type: 'button', onclick: () => selectFund(sp.f.id)}, 'くわしく見る'),
+    nearOf(sp))
+    : h('div', {class: 'hint', id: 'map-card'}, '点を押すと、ファンドの名前と数字が出ます。');
+  box.replaceChildren(h('div', {class: 'mapbox'}, svg,
+    h('div', {class: 'legend'}, key('var(--accent)', 'ファンド'), key('var(--heart)', '♡'), key('var(--t6)', '2倍・3倍型'),
+      key(null, '効率1の線（これより上は、荒さの割によく増えた）', 'dash')),
+    card,
+    h('div', {class: 'hint'}, '縦＝1年の増え方・横＝値動きの荒さ（1年）。' + info.rows.length + '本のうち、荒さが分かる ' + pts.length
+      + '本。荒さの多くは目安（増え方÷効率）です。同じ高さなら、左（おだやか）ほど安心して持てます。')));
+}
+
+/* ---- 面：数字の読み方・今月の動き（iPhone の幅では履歴を1つ足し、戻るで閉じる） ---- */
+function openSheet(kind, title, kids) {
+  S.back = narrow() && S.sel ? S.sel : null;      /* iPhone の幅で、くわしい面から開いたとき：戻ったらそのファンドへ */
+  $('#more-in').replaceChildren(...[pbar('もどる', title), ...kids].filter(Boolean));
+  pushPanel(kind, '#' + kind);
+  $('#more').hidden = false;
+  $('#more').scrollTop = 0;
+}
+/* 面の中からファンドを開く：面を閉じて、くわしい面へ（iPhone の幅では、面の履歴をくわしい面の履歴に置きかえる） */
+function openFrom(id) { S.back = null; $('#more').hidden = true; selectFund(id); }
+
+const HELP = [
+  {t: 'いちばん大事なこと', key: true, b: ['ここの数字は、ぜんぶ過去のものです。この先も同じように増えるとは限りません。',
+    '順位は月ごとに入れかわります。1か月の上下だけでなく、何か月も上位にいるか（常連）も見る、という見方もあります。']},
+  {t: '基準価額', b: ['ファンド1万口あたりの値段です。はじまったときは1万円で、そこから増えたり減ったりした結果です。',
+    '値段が高い＝割高、ではありません。くらべるのは「何%増えたか」です。'], w: 'くわしい面のいちばん上の箱'},
+  {t: 'リターン（増え方）', b: ['その期間に何%増えたかです。1年なら「1年前に買っていたら、いま何%増えているか」。',
+    '3年・5年は「1年あたり」にならした数字（年率）です。3年で合計何%、ではありません。'], w: '一覧の「1年で +◯%」・帯の箱の小さい字・くわしい面'},
+  {t: '順位・圏外・平均', b: ['みんかぶのリターンのランキングの順位です。「圏外」は、取り込んだ順位（例：300位）までに入っていないこと。',
+    '「平均」は、色の付いた期間の順位をならしたものです。どの期間でも上のほうにいるファンドが上に来ます。'], w: '一覧の4つの箱・平均のタブ・表'},
+  {t: '値動きの荒さ', b: ['1年でどのくらい上下にぶれたか（標準偏差）です。20%なら、100万円が1年で±20万円くらい動くのが「ふだん」。3年に1回くらいは、それより大きく動きます。',
+    '目安：債券 数%・世界の株 15〜20%・2倍型 40%以上。',
+    '「約」が付いているのは目安です。みんかぶの「効率」と「増え方」から逆算していて、本物より数%大きめに出ます。そのファンドの「リターン」のページを取り込むと、本物に置きかわります。'],
+    w: '一覧の小さい字（値動き荒め など）・くわしい面の「安心して持てるか」・地図の横の軸・絞り込みの「値動き ふつうまで」'},
+  {t: '効率（シャープレシオ）', b: ['荒さの割に、どれだけ増えたかです。1以上ならよいほう。',
+    '同じくらい増えたファンドなら、効率が高い（＝荒さが小さい）ほうが、持っていて安心です。'], w: '一覧の小さい字・表・地図の斜めの線（線より上が効率1以上）'},
+  {t: '信託報酬', b: ['持っているあいだ、毎年かかる費用です。1%なら、100万円で毎年約1万円。',
+    '同じ中身（例：S&P500）のファンドなら、増え方はほぼ同じで、違いはこの費用です。'], w: 'くわしい面の箱・「100万円で考えると」・「同じ中身のなかま」・表'},
+  {t: '買うときの手数料', b: ['買うときに1回だけかかる費用です。書いてあるのは上限で、ネット証券では0円のことが多いです。'], w: 'くわしい面の「なりたち」・「100万円で考えると」'},
+  {t: '2倍・3倍型（レバレッジ）', b: ['指数の動きの2倍・3倍で動くファンドです。上がるときは大きく増えますが、下がるときも大きく減ります。',
+    '長く持つと、上下をくり返すだけで目減りしやすい作りです。ランキングの上のほうに来やすいので、「2倍・3倍型を外す」で外して見られます。'], w: '絞り込みのボタン・くわしい面の印・地図のだいだい色の点'},
+  {t: '分配金・毎月分配', b: ['ファンドが持ち主にお金を払い出すことです。払った分だけ基準価額が下がるので、増えたわけではありません。',
+    '毎月分配型は、NISA の成長投資枠では買えません（制度の決まり）。'], w: 'くわしい面の印・「なりたち」・「100万円で考えると」'},
+  {t: '為替ヘッジ', b: ['外国の株や債券を、円高・円安の影響を小さくして持つ仕組みです。そのぶん費用がかかります。',
+    '「あり」と「なし」は、同じ指数でも成績が変わります。'], w: 'くわしい面の印'},
+  {t: 'NISA', b: ['増えた分に税金がかからない口座です。つみたて投資枠と成長投資枠の2つがあります。',
+    '印は、みんかぶの NISA のランキングに載っていたファンドです。載っていなくても、買えないとは限りません。'],
+    w: '絞り込みの「NISAで買える」・くわしい面', link: ['老後シミュレーターを開く（「NISA って？」があります）', rougoBase]},
+  {t: 'できてからの長さ・終わる日', b: ['できて3年たっていないファンドは、3年の成績がありません。悪い時期をくぐった数字がまだ無い、ということです。',
+    '終わる日（信託期間）が来ると、その日の値段でお金が返ってきます（売りたくない時期でも）。ただし、延長されることもよくあります。'], w: 'くわしい面の印・「なりたち」'},
+  {t: 'みんかぶの評価（★）・分類', b: ['みんかぶが付けた評価と分類です。決め方はみんかぶのもので、この画面では中身を確かめていません。'],
+    w: '一覧の小さい字・絞り込みの「★4以上」・くわしい面'},
+  {t: '常連・続けて下がっている・今月の動き', b: ['常連＝何か月も続けて、その期間のランキングに入っていること。',
+    '続けて下がっている＝2か月以上続けて順位が下がっていること。1か月の上下では印は出ません。',
+    '今月の動き＝先月とくらべて、上がってきた・新しく入った・外れたファンドです。月に1回の取り込みが2か月そろうと出ます。'],
+    w: 'くわしい面の印・一覧の「常連」「↓続落」・上の「今月の動き」'},
+  {t: '同じ中身のなかま', b: ['名前から、同じ指数（S&P500・全世界の株など）に連動していそうなファンドを集めています。似た名前でも中身が違うことがあるので、目安です。'],
+    w: 'くわしい面の下のほう'},
+  {t: '買った値段', b: ['買ったときの基準価額（証券会社の「平均取得単価」）を書いておくと、買ってから何%増えたか・いくらになったかが出ます。書いたファンドは♡にも入ります。',
+    '基準価額でくらべているので、分配金や手数料は入りません。'], w: 'くわしい面の「買った値段」・推移のグラフ（基準価額）の点線'}];
+function openHelp() {
+  openSheet('help', '数字の読み方', [
+    h('p', {class: 'hint'}, '投資信託の数字の見方を、この画面のどこに出ているかと一緒にまとめました。'),
+    h('div', {class: 'help'}, HELP.map(x => h('div', {class: 'hcard' + (x.key ? ' key' : '')},
+      h('h4', null, x.t), x.b.map(t => h('p', null, t)),
+      x.link ? h('a', {class: 'btn', href: x.link[1](), target: '_blank', rel: 'noopener'}, x.link[0]) : null,
+      x.w ? h('div', {class: 'where'}, 'この画面では：' + x.w) : null)))]);
+}
+
+/* 今月の動き：期間ごとに、ひとつ前の月の並びとくらべる（サーバーの moves と、ファンドごとの mv） */
+function openMoves() {
+  const d = S.data, byId = new Map(d.funds.map(f => [f.id, f]));
+  const rowOf = (f, mark, cls, sub, name) => f
+    ? h('div', {class: 'mvrow', role: 'button', tabindex: '0', 'data-id': f.id, onclick: () => openFrom(f.id),
+      onkeydown: e => { if (e.key === 'Enter') openFrom(f.id); }},
+      h('span', {class: 'd ' + cls}, mark), h('span', {class: 'n'}, f.name), h('span', {class: 'r'}, sub))
+    : h('div', {class: 'mvrow off'}, h('span', {class: 'd ' + cls}, mark), h('span', {class: 'n'}, name || ''), h('span', {class: 'r'}, sub));
+  const boxOf = (title, rows, none) => h('div', {class: 'mvbox'}, h('h4', null, title), rows.length ? rows : h('div', {class: 'hint'}, none));
+  const secs = TERMS.map(([k, label]) => {
+    const mm = (d.moves || {})[k];
+    const c = d.coverage[k] || {};
+    if (!mm) {
+      return h('div', {class: 'mvsec', 'data-term': k}, h('h3', null, label),
+        h('div', {class: 'hint'}, covAny(k) ? 'くらべる前の月がまだありません（いまは' + (c.months || 1) + 'か月ぶん）。来月の取り込みで出ます。' : 'まだ取り込んでいません。'));
+    }
+    const ups = d.funds.filter(f => (f.mv || {})[k] > 0).sort((a, b) => b.mv[k] - a.mv[k]).slice(0, 5);
+    const downs = d.funds.filter(f => (f.mv || {})[k] < 0).sort((a, b) => a.mv[k] - b.mv[k]).slice(0, 5);
+    if (!ups.length && !downs.length && !mm.in.length && !mm.out.length) {
+      return h('div', {class: 'mvsec', 'data-term': k}, h('h3', null, label + '：' + ym(mm.prev) + '末 → ' + ym(mm.date) + '末'),
+        h('div', {class: 'hint'}, '先月と同じ並びでした（上位' + mm.depth + '位まで）。'));
+    }
+    return h('div', {class: 'mvsec', 'data-term': k},
+      h('h3', null, label + '：' + ym(mm.prev) + '末 → ' + ym(mm.date) + '末'),
+      h('div', {class: 'mvgrid'},
+        boxOf('上がってきた', ups.map(f => rowOf(f, '↑' + f.mv[k], 'up', 'いま' + f.t[k] + '位')), '上がったファンドはありません。'),
+        boxOf('新しく上位' + mm.depth + '位に入った', mm.in.slice(0, 10).map(([id, rk]) => rowOf(byId.get(id), '入', 'up', rk + '位', id)), 'ありません。'),
+        boxOf('上位' + mm.depth + '位から外れた', mm.out.slice(0, 10).map(([id, prev, name, now]) =>
+          rowOf(byId.get(id), '外', 'down', '前' + prev + '位 → ' + (now ? now + '位' : '圏外'), name)), 'ありません。'),
+        boxOf('下がった', downs.map(f => rowOf(f, '↓' + -f.mv[k], 'down', 'いま' + f.t[k] + '位')), '下がったファンドはありません。')));
+  });
+  openSheet('moves', '今月の動き', [
+    h('p', {class: 'hint'}, 'ひとつ前の月の並びとくらべました。順位は月ごとに入れかわるので、1か月の上下だけでなく、何か月も続いているか'
+      + '（くわしい面の「常連」「続けて下がっている」の印）も見る、という見方もあります。'),
+    ...secs]);
+}
+
+/* ---- 取り込み ---- */
+async function openImport() {
+  const box = $('#imp-in');
+  const d = S.data;
+  if (!d) return;
+  if (!jidou.timer) jidouWatch();
+  const phone = narrow();
+  const board = h('div', {class: 'board terms'}, TERMS.map(([k, label]) => {
+    const up = cov(k);
+    return h('div', {class: 'brow'}, h('span', {class: 't'}, label),
+      h('span', {class: 's'}, covAny(k) ? spanText(k) + 'の成績が、' + (up ? up + '位まで入っています' : covAny(k) + '件入っています（1位からの分がまだ）') : 'まだ入っていません'),
+      up ? h('a', {class: 'btn main', href: rankUrl(k, Math.floor(up / PAGE) + 1)}, (up + 1) + '〜' + (up + PAGE) + '位を開く') : null,
+      h('a', {class: 'btn', href: rankUrl(k, 1)}, up ? '1位から' : '1〜20位を開く'));
+  }));
+  const starRows = d.funds.filter(f => S.stars.has(f.id)).map(f => h('div', {class: 'brow'},
+    h('span', {class: 's'}, h('b', null, f.name), h('br'),
+      d.page_dates[f.id] ? 'リターンのページ：' + ym(d.page_dates[f.id]) + ' 末までの成績を取り込み済み' : 'リターンのページ：まだ'),
+    h('a', {class: 'btn', href: MK + '/fund/' + f.id + '/return'}, '開く')));
+  const code = h('textarea', {class: 'code', readonly: true, 'aria-label': '取り込むの中身'});
+  const drag = h('a', {class: 'btn main', id: 'bm-drag', href: '#', onclick: e => e.preventDefault()}, '取り込む');
+  /* ブックマークの名前に版の数を付ける（「取り込む6」）。バーに並んだとき、新しい形かどうかがひと目で分かるように */
+  const bmName = h('b', {class: 'bm-name'}, '取り込む');
+  const pasteHow = h('div', {class: 'sect'},
+    h('ol', null,
+      h('li', null, 'みんかぶのランキング（またはファンドの「リターン」のページ）を開いて、ページの上を1回クリックしてから、Ctrl+A → Ctrl+C。'),
+      h('li', null, 'この画面に戻って、Ctrl+V。下の枠の中でなくても、この画面のどこでも入ります。')),
+    h('textarea', {class: 'code paste', id: 'paste-box', placeholder: 'ここを押して、Ctrl+V', 'aria-label': '貼り付けて取り込む'}));
+  const pcBookmark = h('div', {class: 'sect'}, h('h3', null, 'パソコン'),
+    h('ol', null, h('li', null, 'ブックマークバーを出します（Ctrl+Shift+B）。'),
+      h('li', null, '入れ直すときは、先にバーの古い「取り込む」を右クリック →「削除」。'),
+      h('li', null, '下のボタンを、ブックマークバーまで引っぱって置きます。バーに「', h('b', {class: 'bm-name'}, '取り込む'), '」と出ていれば新しい形です（数字は版。古い「取り込む」は消します）。'),
+      h('li', null, 'みんかぶのページのタブの中で、バーの「取り込む」を押します（空のタブで押すと about:blank#blocked と出ます）。')), drag);
+  const phoneBookmark = h('div', {class: 'sect'}, h('h3', null, 'iPhone（Safari）'),
+    h('ol', null,
+      h('li', null, '下の文字を長押しして「すべてを選択」→「コピー」。'),
+      h('li', null, 'この画面で共有ボタン →「ブックマークを追加」。名前を「', bmName, '」にして保存（入れ直すときは、名前だけ直します）。'),
+      h('li', null, 'ブックマークの一覧 →「編集」→ いまの「取り込む」を開き、住所を消して貼り付け →「完了」。'),
+      h('li', null, 'みんかぶのランキングを開いて、ブックマークから「取り込む」を押します。')),
+    code, h('div', null, h('button', {class: 'btn', type: 'button', onclick: () => { code.focus(); code.select(); code.setSelectionRange(0, code.value.length); }}, '全部えらぶ')));
+  const setup = h('details', {class: 'how', open: !any(d)},
+    h('summary', null, 'はじめの1回・入れ直し：「取り込む」をブックマークに入れる'),
+    phone ? [phoneBookmark, pcBookmark] : [pcBookmark, phoneBookmark]);
+  /* ふだんは使わないもの（1つずつ選んで開く・まとめて取るの細かい設定・NISA の印・♡のページ・貼り付け）は、1つの箱にしまう。
+     開け閉めは S.impMore で覚える（面を描き直しても閉じないように。開き直すと閉じる） */
+  const pasteBlock = phone
+    ? h('details', {class: 'how'}, h('summary', null, 'パソコンのとき：コピーして貼る（ブックマーク無しで入る）'), pasteHow)
+    : h('div', {class: 'sect'}, h('h3', null, 'コピーして貼る（ブックマークは要りません）'), pasteHow);
+  const more = h('details', {class: 'how', id: 'imp-more', open: !!S.impMore},
+    h('summary', null, 'ほかの取り込み（ふだんは使いません）'),
+    h('p', {class: 'hint'}, '1つずつ選んで開くとき・NISA の印を取るとき・♡のファンドのページを取るとき用です。ふだんは上の「はじめる」だけで足ります。'),
+    h('div', {class: 'filters'}, h('button', {class: 'chip', type: 'button', id: 'auto-next', 'aria-pressed': String(S.autoNext),
+      onclick: () => { S.autoNext = !S.autoNext; keep(); openImport(); }}, '取り込んだら、つぎのページを自動で開く')),
+    h('div', {class: 'sect'}, h('h3', null, '期間ごとの取り込み（開いたページで「取り込む」）')),
+    board,
+    bulkBlock(),
+    nisaBlock(),
+    h('div', {class: 'sect'}, h('h3', null, '♡のファンド（ファンドのページで1回押すと、全部の期間の数字が入ります）'),
+      starRows.length ? h('div', {class: 'board stars'}, starRows) : h('div', {class: 'hint'}, '♡はまだありません。ランキングの行の♡を押すと、ここに並びます。')),
+    pasteBlock);
+  more.addEventListener('toggle', () => { S.impMore = more.open; });
+  box.replaceChildren(...[
+    pbar('もどる', '取り込む'),
+    chainBlock(),
+    dropLine(),
+    setup,
+    more].filter(Boolean));     /* replaceChildren は null を「null」という字にするので、先に外す */
+  pushPanel('imp', '#imp');
+  $('#imp').hidden = false;
+  $('#imp').scrollTop = 0;
+  const bm = await api('/api/bookmarklet');
+  if (bm) {
+    code.value = bm.code; drag.setAttribute('href', bm.code);
+    if (bm.v) for (const e of [drag, bmName, ...document.querySelectorAll('#imp .bm-name')]) e.textContent = '取り込む' + bm.v;
+  }
+  else code.value = '読み込めませんでした。開き直してください。';
+}
+
+let lastNext = null, nextTimer = null;
+const NEXT_WAIT = 1200;   /* 取り込めた知らせを見せてから、つぎのページへ移るまで（ミリ秒） */
+function banner(text, next, bad) {
+  const box = $('#banner');
+  lastNext = next || null;
+  clearTimeout(nextTimer);
+  box.className = 'banner' + (bad ? ' bad' : '');
+  box.replaceChildren(...[h('div', {class: 'msg'}, text),
+    next ? h('a', {class: 'btn main', href: next.url}, next.label) : null,
+    h('button', {class: 'btn', type: 'button', onclick: () => { clearTimeout(nextTimer); box.hidden = true; }}, 'とじる')].filter(Boolean));
+  box.hidden = false;
+}
+
+/* ブックマークで取り込めたら、つぎのページを自動で開く（取り込みと次のページを開くのを、1回で済ませるため）。
+   開くだけで、読むのは今までどおり、持ち主がそのページで「取り込む」を押したとき。
+   貼り付け・古いタブ・古いブックマークのときは開かない（知らせを読んでもらうため）。
+   今のページを置き換えて移る（ブラウザの戻るで、この画面を挟まずに前のみんかぶのページへ戻れるように）。 */
+function goNextSoon(out) {
+  if (out.bad !== undefined || out.old || out.stale) return;
+  const msg = $('#banner .msg');
+  if (!msg) return;
+  let next = null;
+  if (chainOn()) {
+    /* おまかせ：みんかぶがまだ新しい月になっていなければ止める。全部済んだら知らせて終わる */
+    if (out.kind === 'rank' && out.date < needMonth()) {
+      setChain(false);
+      msg.append(h('div', {class: 'hint', id: 'chain-wait'}, 'みんかぶが、まだ ' + ym(needMonth()) + ' 末までの成績になっていないようです。'
+        + '少しあとで、取り込みの面の「はじめる」をもう一度押してください。'));
+      return;
+    }
+    const st = chainSteps();
+    if (!st.length) {
+      setChain(false);
+      msg.append(h('div', {class: 'hint', id: 'chain-done'}, '今月ぶんは、全部取り込めました🎉 おつかれさまでした。'));
+      return;
+    }
+    next = {url: st[0].url, label: st[0].label + '（あと' + st.length + '回）'};
+  } else {
+    if (!S.autoNext || !lastNext) return;
+    next = lastNext;
+  }
+  const note = h('div', {class: 'hint', id: 'next-soon'}, 'つづけて「' + next.label + '」へ進みます… ',
+    h('button', {class: 'btn', type: 'button', onclick: () => { clearTimeout(nextTimer); setChain(false); note.remove(); }}, '止める'));
+  msg.append(note);
+  nextTimer = setTimeout(() => location.replace(next.url), NEXT_WAIT);
+}
+
+/* ---- 今月ぶんをまとめて取る（おまかせ）----
+   毎月1日に、1回押すだけで今月ぶんをまとめて取れるようにするためのボタン。
+   「はじめる」で、3ヶ月→6ヶ月→1年→3年のランキング（S.depth 位まで）→ まとめて取る（比較のページ）の順に、まだのページを
+   1枚ずつ開く。読むのは今までどおり、持ち主がそのページで「取り込む」を押したとき。
+   続きの印は localStorage の toushin-chain。全部済むか「止める」で消える */
+const DEPTHS = [60, 100, 200, 300];
+const needMonth = () => { const n = new Date(); return isoDay(new Date(n.getFullYear(), n.getMonth(), 0)); };
+const chainOn = () => { try { return localStorage.getItem('toushin-chain') === '1'; } catch (e) { return false; } };
+function setChain(on) { try { if (on) localStorage.setItem('toushin-chain', '1'); else localStorage.removeItem('toushin-chain'); } catch (e) {} }
+/* まだのページ（今月の成績の月で、S.depth 位まで切れ目なく入っていない期間のつづき → 印のファンドの比較のページ） */
+function chainSteps() {
+  const d = S.data, need = needMonth(), steps = [];
+  for (const [k, label] of TERMS) {
+    const c = d.coverage[k] || {};
+    const upto = c.date && c.date >= need ? c.upto : 0;
+    for (let p = Math.floor(upto / PAGE) + 1; p <= S.depth / PAGE; p++) {
+      steps.push({url: rankUrl(k, p), label: label + 'の' + ((p - 1) * PAGE + 1) + '〜' + (p * PAGE) + '位', rank: true});
+    }
+  }
+  chunksOf(chainPicks()).forEach(ids => steps.push({url: compareUrl(ids), label: 'まとめて取る（' + ids.length + '本）', rank: false}));
+  return steps;
+}
+/* おまかせで比較のページに並べるのは、いまの平均の上位 AUTO_PICK 本と♡のうち、今月の成績の月をまだ取っていないもの */
+function chainPicks() {
+  const d = S.data;
+  const want = [...new Set([...listRows('avg', true, AUTO_PICK).rows.map(r => r.f.id), ...S.stars])];
+  return want.filter(id => !d.period || (d.taken || {})[id] !== d.period);
+}
+/* Google ドライブから自動で入れている様子（別のPCで取ったデータ。8050 が5分ごとに見る） */
+function dropLine() {
+  const dr = S.data.drop;
+  if (!dr) return null;
+  const l = dr.last;
+  return h('p', {class: 'hint', id: 'drop-line'}, !dr.seen ? 'Google ドライブ（' + dr.dir + '）が見えません。'
+    : l && l.ok ? 'Google ドライブのファイルからも自動で入れています（最後：' + md(l.at) + ' ' + l.at.slice(11, 16) + '・' + l.file + '・' + l.funds + '本）。'
+      : l ? 'Google ドライブの「' + l.file + '」は読めませんでした（' + (l.why || '') + '）。ファイルを置き直すと、読み直します。'
+        : '別のPCで取ったデータを Google ドライブに「投資信託_….json」で置くと、5分以内に自動で入ります。');
+}
+function chainBlock() {
+  const d = S.data, st = chainSteps(), need = needMonth();
+  const nRank = st.filter(x => x.rank).length;
+  /* まだ新しい月のランキングを入れていないうちは、まとめて取るの回数は「印の本数÷1回の本数」で見積もる */
+  const stale = !d.period || d.period < need;
+  const cmpEst = Math.ceil((AUTO_PICK + S.stars.size) / S.chunk);
+  const nCmp = stale && nRank ? cmpEst : st.length - nRank;
+  const go = st[0];
+  return h('div', {class: 'sect chain', id: 'chain'},
+    h('h3', null, '今月ぶんをまとめて取る（おまかせ）'),
+    go ? h('p', {class: 'hint'}, '「はじめる」を押すと、みんかぶのページが順に開きます。開いたページで、ブックマークの「',
+      h('b', {class: 'bm-name'}, '取り込む'), '」を押すだけ。取り込めたら、次のページが自動で開きます。あと' + (nRank + nCmp)
+      + '回くらい（ランキング' + nRank + '回・まとめて取る' + nCmp + '回）。')
+      : h('p', {class: 'hint', id: 'chain-none'}, (d.period ? ym(d.period) + ' 末までの成績は、' : '') + '全部取り込めています。来月の1日ごろ、またここから。'),
+    h('div', {class: 'filters'}, h('span', {class: 'hint'}, 'ランキングは'), DEPTHS.map(n => h('button', {class: 'chip', type: 'button',
+      'data-depth': String(n), 'aria-pressed': String(S.depth === n), onclick: () => { S.depth = n; keep(); openImport(); }},
+      n + '位まで（月に約' + (4 * n / PAGE + cmpEst) + '回）'))),
+    go ? h('a', {class: 'btn main chain-go', id: 'chain-go', href: go.url, onclick: () => setChain(true)},
+      (chainOn() ? 'つづきから' : 'はじめる') + '（' + go.label + '）') : null,
+    go || jidou.running ? h('button', {class: 'btn chain-go', type: 'button', id: 'jidou-go', disabled: jidou.running || null,
+      onclick: () => jidouStart()}, jidou.running ? '自動で取っています…' : '自動で取る（ブックマークなし・' + S.depth + '位まで）') : null,
+    h('p', {class: 'hint', id: 'jidou-line', hidden: !jidou.last || null}, jidou.last || ''));
+}
+
+/* 自動で取る：8050 が jidou_torikomi.py を裏で回す（見えない Edge で、上の「はじめる」と同じページを順に取り込む）。
+   iPhone から押して、閉じても続く */
+async function jidouStart() {
+  const out = await api('/api/jidou', {depth: S.depth});
+  if (out) Object.assign(jidou, out);
+  clearTimeout(jidou.timer);
+  jidou.timer = null;
+  openImport();
+}
+async function jidouWatch() {
+  clearTimeout(jidou.timer);
+  jidou.timer = -1;
+  const out = await api('/api/jidou');
+  if (!out) { jidou.timer = null; return; }
+  const was = jidou.running;
+  Object.assign(jidou, out);
+  const line = $('#jidou-line'), btn = $('#jidou-go');
+  if (line) { line.textContent = out.last || ''; line.hidden = !out.last; }
+  if (btn && !out.running) { btn.disabled = false; btn.textContent = '自動で取る（ブックマークなし・' + S.depth + '位まで）'; }
+  jidou.timer = out.running ? setTimeout(jidouWatch, 3000) : null;
+  if (!out.running && was) { await load(); openImport(); }
+}
+
+/* 写した中身をサーバーへ渡す。返すのは、入った結果か {bad: 入らなかった理由} */
+async function sendImport(payload) {
+  try {
+    const res = await fetch('/api/import', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+    const out = await res.json();
+    return res.ok ? out : {bad: out.detail || ''};
+  } catch (e) { return {bad: 'この画面のサーバーに届きませんでした。'}; }
+}
+
+/* ブックマークの「取り込む」から、住所の # に載って渡ってきた分 */
+async function takeHash() {
+  if (location.pathname !== '/torikomi') return null;
+  const raw = location.hash.slice(1);
+  history.replaceState(null, '', '/');
+  if (!raw) return null;
+  let payload;
+  try { payload = JSON.parse(decodeURIComponent(raw)); } catch (e) { return {bad: '渡された中身が読めませんでした。'}; }
+  return sendImport(payload);
+}
+
+/* コピーして貼った分。読み方はブックマークと同じ（/extract.js）。
+   貼られた HTML は DOMParser で読むだけで、画面には入れない（中の script は動かず、画像なども読みに行かない）。 */
+function fromPaste(html) {
+  if (!html) return {bad: 'コピーした中身に、ページの形が入っていませんでした。みんかぶのページの上で Ctrl+A → Ctrl+C をやり直してください。'};
+  if (!window.toushinExtract) return {bad: '読み取りの部品を読み込めていません。この画面を開き直してください。'};
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const txt = e => e ? e.textContent.replace(/\s+/g, ' ').trim() : '';
+  const isFund = [...doc.querySelectorAll('table')].some(t => {
+    const heads = [...t.rows].map(r => txt(r.cells[0]));
+    return heads.includes('期間') && heads.includes('リターン');
+  });
+  const isCompare = [...doc.querySelectorAll('table')].some(t => {
+    const heads = [...t.rows].map(r => txt(r.cells[0]).replace(/\s/g, ''));
+    return heads.includes('ファンド') && heads.includes('シャープレシオ');
+  });
+  if (isCompare) {
+    const rc = window.toushinExtract(doc, {hostname: 'itf.minkabu.jp', pathname: '/fund/compare', search: ''}, true);
+    return rc.a ? {bad: rc.a.replace(/で押してください/g, 'をコピーしてください')} : {payload: rc.d};
+  }
+  let path = '/ranking/return';
+  if (!isFund && !doc.querySelector('input[id="fund_ids"]')) {
+    return {bad: 'みんかぶのランキングか、ファンドの「リターン」のページをコピーして貼ってください（ページの上を1回クリックしてから Ctrl+A → Ctrl+C）。'};
+  }
+  if (isFund) {
+    const count = {};
+    for (const a of doc.querySelectorAll('a[href]')) {
+      const m = a.getAttribute('href').match(/\/fund\/([0-9A-Za-z]{8})(?:\/|$)/);
+      if (m) count[m[1]] = (count[m[1]] || 0) + 1;
+    }
+    const id = Object.keys(count).sort((a, b) => count[b] - count[a])[0];
+    if (!id || count[id] < 2) return {bad: 'どのファンドのページかが読めませんでした。ページの上で Ctrl+A → Ctrl+C をやり直してください。'};
+    path = '/fund/' + id + '/return';
+  } else {
+    /* NISA のランキングは、いつものランキングと同じ作りなので、見出し（h1）で見分ける */
+    const h1 = txt(doc.querySelector('h1'));
+    if (/NISA/.test(h1)) path = /つみたて/.test(h1) ? '/ranking/yield_nisa' : '/ranking/yield_nisa_growth';
+  }
+  const r = window.toushinExtract(doc, {hostname: 'itf.minkabu.jp', pathname: path, search: ''}, true);
+  if (r.d && r.d.kind === 'nisa') r.d.pasted = true;      /* 貼り付けでは何ページ目か分からないので、「次を開く」は出さない */
+  return r.a ? {bad: r.a.replace(/で押してください/g, 'をコピーしてください')} : {payload: r.d};
+}
+
+async function onPaste(e) {
+  const t = e.target;
+  if (t && t.id === 'f-q') return;                 /* 「名前でさがす」への貼り付けは、そのまま */
+  const html = e.clipboardData ? e.clipboardData.getData('text/html') : '';
+  if (!html && !(t && t.id === 'paste-box')) return;
+  e.preventDefault();
+  const got = fromPaste(html);
+  const out = got.bad !== undefined ? {bad: got.bad} : await sendImport(got.payload);
+  if (pushed) history.back(); else $('#imp').hidden = true;
+  await applyResult(out);
+  window.scrollTo(0, 0);
+}
+
+/* 取り込んだ結果を画面に映す（どちらの入れ方でも同じ） */
+async function applyResult(out) {
+  if (out.bad === undefined && out.kind !== 'compare' && out.kind !== 'nisa') {
+    if (out.kind === 'rank') S.tab = String(out.term);
+    else {
+      S.tab = 'star';
+      /* くわしい面をすぐ開くのは PC の幅だけ（iPhone の幅では画面いっぱいに開いて、「取り込めました」が隠れるため） */
+      S.sel = narrow() ? null : out.id;
+    }
+    keep();
+  }
+  await load();
+  showResult(out);
+  if (S.sel) selectFund(S.sel);
+}
+
+function showResult(out) {
+  if (out.bad !== undefined) { banner('取り込めませんでした：' + out.bad, null, true); return; }
+  if (out.old) {
+    /* 入ったけれど、ブックマークの中身が古い（比較のページなど、あとから足した読み方が入っていない） */
+    const r = Object.assign({}, out, {old: false});
+    showResult(r);
+    const msg = $('#banner .msg');
+    if (msg) msg.append(h('div', {class: 'hint'}, 'ブックマークの「取り込む」が古いままです。取り込みの面の「はじめの1回・入れ直し」から入れ直すと、あとから足したページ（NISA のランキングなど）も読めます。'));
+    return;
+  }
+  if (out.kind === 'nisa') {
+    banner('取り込めました：' + out.n + '本に「' + out.label + '」の NISA の印を付けました（' + (out.page || 1) + 'ページ目）。',
+      out.next ? {url: out.next.url, label: out.next.first + '〜' + out.next.last + '位を開く'} : null);
+    return;
+  }
+  if (out.kind === 'compare') {
+    const rest = S.data ? remainingPicks() : [];
+    const next = rest.slice(0, S.chunk);
+    const short = out.asked && out.n < out.asked
+      ? '（' + out.asked + '本のうち' + out.n + '本。比較のページは1回に' + out.n + '本までのようです。残りは次で入ります）' : '';
+    banner('取り込めました：比較のページから' + out.n + '本（1年・3年・5年のリターンと効率' + (out.info ? '・なりたち' : '') + '）' + short
+      + (rest.length ? '。印のファンドは、あと' + rest.length + '本です。' : '。印のファンドは、ぜんぶ取り込み済みです。'),
+      next.length ? {url: compareUrl(next), label: '次の' + next.length + '本を開く'} : null);
+    return;
+  }
+  if (out.kind === 'rank' && out.stale) {
+    banner('このページは古い成績' + (out.span ? '（' + out.span.replace('~', '〜') + '）' : '') + 'でした。みんかぶはもう '
+      + ym(out.stale) + ' 末までの成績に変わっています。下のボタンでページを開き直して、もう一度「取り込む」を押してください。',
+      {url: out.next.url, label: 'このページを開き直す'}, true);
+    return;
+  }
+  if (out.kind === 'rank') {
+    banner('取り込めました：' + TLABEL[String(out.term)] + ' ' + out.first + '〜' + out.last + '位（' + out.n + '件）'
+      + (out.span ? '・' + out.span.replace('~', '〜') + ' の成績' : ''),
+      out.next ? {url: out.next.url, label: out.next.first + '〜' + out.next.last + '位を開く'} : null);
+    return;
+  }
+  const next = S.data && S.data.funds.find(f => S.stars.has(f.id) && f.id !== out.id && S.data.page_dates[f.id] !== out.date);
+  banner('取り込めました：' + out.name + '（' + out.terms.map(t => TLABEL[String(t)] || (t / 12 + '年')).join('・') + 'のリターン）。♡に入れました。',
+    next ? {url: MK + '/fund/' + next.id + '/return', label: '次の♡を開く'} : null);
+}
+
+$('#btn-imp').addEventListener('click', openImport);
+$('#f-lev').addEventListener('click', () => { S.noLev = !S.noLev; keep(); render(); });
+$('#f-fee').addEventListener('click', () => { S.lowFee = !S.lowFee; keep(); render(); });
+$('#f-nisa').addEventListener('click', () => { S.onlyNisa = !S.onlyNisa; keep(); render(); });
+$('#f-rough').addEventListener('click', () => { S.lowRough = !S.lowRough; keep(); render(); });
+$('#f-eff').addEventListener('click', () => { S.effOne = !S.effOne; keep(); render(); });
+$('#f-star4').addEventListener('click', () => { S.star4 = !S.star4; keep(); render(); });
+[...document.querySelectorAll('.chipsrow .chip')].forEach((c, i) => { c.dataset.i = String(i); });
+$('#f-star').addEventListener('click', () => { S.onlyStar = !S.onlyStar; render(); });
+$('#f-q').addEventListener('input', e => { S.q = e.target.value; renderList(); });
+/* 幅が変わったときだけグラフを描き直す（iPhone は、スクロールで住所の帯が出入りするだけでも resize が来る） */
+let lastWidth = window.innerWidth;
+window.addEventListener('resize', () => {
+  if (window.innerWidth === lastWidth) return;
+  lastWidth = window.innerWidth;
+  if (S.hist && S.hist.length > 1) renderChart();
+  if (S.view === 'map' && S.data) renderList();
+});
+
+document.addEventListener('paste', onPaste);
+/* 読み方（torikomi.js）を、この画面用に読み込む。旗を立てておくと、画面を移らずに読み方だけを置いていく */
+window.__TOUSHIN_PAGE__ = true;
+document.head.append(h('script', {src: '/extract.js'}));
+
+/* 新しい月の成績がまだ入っていなければ、「更新の時期です」を出す。
+   みんかぶは毎月1日には前の月の末までの成績に切り替わるので、いちばん新しい成績の月が前の月の末日より前なら、その時期。
+   「あとで」はその日だけ閉じる（次の日に開くと、また出る）。取り込めば出なくなる。 */
+function isoDay(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function maybeNudge() {
+  const d = S.data;
+  if (!d || !d.period) return;                 /* まだ何も無いときは、空の画面の案内に任せる */
+  const now = new Date();
+  const need = isoDay(new Date(now.getFullYear(), now.getMonth(), 0));
+  if (d.period >= need) return;
+  let later = null;
+  try { later = localStorage.getItem('toushin-nudge-later'); } catch (e) {}
+  if (later === isoDay(now)) return;
+  $('#nudge-text').textContent = 'みんかぶの成績が ' + ym(need) + ' 末までに変わっています。いま入っているのは ' + ym(d.period)
+    + ' 末までです。「取り込む」を押して、いちばん上の「はじめる」から。開いたページでブックマークを押すだけで、次々に進みます。';
+  $('#nudge').hidden = false;
+}
+$('#nudge-go').addEventListener('click', () => { $('#nudge').hidden = true; openImport(); });
+$('#nudge-later').addEventListener('click', () => {
+  $('#nudge').hidden = true;
+  try { localStorage.setItem('toushin-nudge-later', isoDay(new Date())); } catch (e) {}
+});
+
+(async () => {
+  /* みんかぶから戻ってきて Safari が読み直したときは、見ていた面を開き直す。
+     履歴にこの画面の面の印（history.state.panel）が残っていれば、履歴は足さずにその印を使う
+     （足すと「一覧」の履歴が2つ並び、戻るが1回空振りするため）。印が無いのに #f= が付いている住所から開いたときだけ、足し直す。 */
+  const st = history.state && history.state.panel ? history.state.panel : null;
+  const opened = location.hash.startsWith('#f=') ? location.hash.slice(3) : null;
+  const impOpen = location.hash === '#imp';
+  const moreKind = location.hash === '#help' ? 'help' : location.hash === '#moves' ? 'moves' : null;
+  if (location.pathname !== '/torikomi') {
+    if (st && (opened || impOpen || moreKind)) pushed = st;
+    else if (location.hash) history.replaceState(null, '', '/');
+  }
+  const out = await takeHash();
+  if (out) { await applyResult(out); goNextSoon(out); return; }
+  await load();
+  if (opened && S.data && S.data.funds.some(f => f.id === opened)) selectFund(opened);
+  else if (impOpen && pushed) openImport();
+  else if (moreKind && pushed) (moreKind === 'help' ? openHelp : openMoves)();
+  else {
+    if (pushed) { pushed = null; history.replaceState(null, '', '/'); }
+    maybeNudge();
+  }
+})();
+</script>
+</body>
+</html>

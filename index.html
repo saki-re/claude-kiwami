@@ -1,0 +1,4002 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="iris">
+<head>
+<meta charset="UTF-8">
+<!-- 2026-08-01 viewport-fit=cover を外した。実機で踏んだ不具合の理由と同じで、
+     付けるとページ側が安全域を全部引き受ける形になり、ホーム画面アプリで
+     「入力欄の下に空の帯が残る」「上が詰まる」が出る。外せば iOS が安全域を確保する。
+     interactive-widget=resizes-content ＝キーボードで画面そのものを縮ませる指定。 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>クロード極</title>
+<!-- ホーム画面に追加したときに「アプリ」として開く。これが無いと URL 欄つきの
+     ただのページになる。
+     ★manifest は「/」直下から配る（/static 配下だと受け持ち範囲がそこだけになる・同実測）。 -->
+<link rel="apple-touch-icon" href="/icon.png?v=4"><!-- ?v= は make_icon.py の版。作り直したら1つ上げる（iPhone が古い絵を使い回さないように） -->
+<meta name="apple-mobile-web-app-title" content="クロード極">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0d0b14">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- rel="stylesheet" は描画を止めるタグで、Google の応答を待つ間そもそも画面が出ない。
+     media="print" で読み込ませ、届いたら all に切り替える＝描画を1ミリも止めない
+     （アプリの読み込みが遅い問題への手当て）。 -->
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap"
+      rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
+<style>
+  /* ══════════════════════════════════════════════════════════════
+     クロード極 — 見た目
+     色の土台は元にした別のアプリの :root から引き継いだ。
+     iPhone の実機で何度も見て決めた値なので、
+     ゼロから作らずそのまま使う（2026-07-31 の指定値）。
+     テーマ2枚は「明るさは揃えて色相だけ回す」＝着替えた感じにする。
+     ══════════════════════════════════════════════════════════════ */
+
+  /* ── テーマ1「夜明け前の藤」＝既定のテーマ ── */
+  :root, [data-theme="iris"] {
+    --bg: #0d0b14;
+    --accent: #b8a0d8;          /* 藤 */
+    --accent-2: #f0a8c8;        /* 桜（グラデの片側） */
+    --text: #e8e4f0;
+    --text-muted: rgba(232, 228, 240, 0.5);
+    --ai-bubble-bg: rgba(184, 160, 216, 0.085);
+    --ai-bubble-border: rgba(184, 160, 216, 0.30);
+    --user-bubble-bg: rgba(255, 255, 255, 0.045);
+    --user-bubble-border: rgba(255, 255, 255, 0.10);
+    --input-bg: rgba(255, 255, 255, 0.05);
+    --header-bg: rgba(13, 11, 20, 0.9);
+    --panel-bg: rgba(16, 12, 26, 0.98);
+    --option-bg: #1a1628;
+    --particle: 184, 160, 216;
+    --aurora-1: rgba(184, 160, 216, 0.16);
+    --aurora-2: rgba(240, 168, 200, 0.11);
+    --aurora-3: rgba(120, 100, 190, 0.13);
+  }
+
+  /* ── テーマ2「深い水の底」＝明るさは1と同じ。色相だけ回す ── */
+  [data-theme="water"] {
+    --bg: #0a1216;
+    --accent: #8fd6c8;          /* ミント */
+    --accent-2: #a8c8f0;        /* 空 */
+    --text: #e2eef0;
+    --text-muted: rgba(226, 238, 240, 0.5);
+    --ai-bubble-bg: rgba(143, 214, 200, 0.075);
+    --ai-bubble-border: rgba(143, 214, 200, 0.28);
+    --user-bubble-bg: rgba(255, 255, 255, 0.045);
+    --user-bubble-border: rgba(255, 255, 255, 0.10);
+    --input-bg: rgba(255, 255, 255, 0.05);
+    --header-bg: rgba(10, 18, 22, 0.9);
+    --panel-bg: rgba(10, 20, 24, 0.98);
+    --option-bg: #12222a;
+    --particle: 143, 214, 200;
+    --aurora-1: rgba(143, 214, 200, 0.15);
+    --aurora-2: rgba(168, 200, 240, 0.11);
+    --aurora-3: rgba(80, 150, 170, 0.13);
+  }
+
+  /* ── テーマ3「箔押しの古書」＝クロードカラー（2026-08-02）──
+     公式の橙 #D97757 と墨 #141413 を土台に、金箔と生成りを足したもの。
+     ★背景は1・2と同じ暗さを保つ。明るいクリーム地にすると、共有している
+     rgba(255,255,255,…) 系（user-bubble・input・境界線）が総崩れになる。
+     クリームは地ではなく、文字と箔のほうで出す。 */
+  [data-theme="claude"] {
+    --bg: #14100b;
+    --accent: #d97757;          /* クレイ（Anthropic の橙・確信度 高） */
+    --accent-2: #d9b26a;        /* 金箔（グラデの片側） */
+    --text: #f4efe3;            /* 生成り。#FAF9F5 にわずかな黄味 */
+    --text-muted: rgba(244, 239, 227, 0.5);
+    --ai-bubble-bg: rgba(217, 178, 106, 0.075);
+    --ai-bubble-border: rgba(217, 178, 106, 0.30);
+    --user-bubble-bg: rgba(255, 255, 255, 0.045);
+    --user-bubble-border: rgba(255, 255, 255, 0.10);
+    --input-bg: rgba(255, 255, 255, 0.05);
+    --header-bg: rgba(20, 16, 11, 0.9);
+    --panel-bg: rgba(24, 18, 12, 0.98);
+    --option-bg: #241b12;
+    --particle: 217, 178, 106;  /* 舞うのは金の粉 */
+    --aurora-1: rgba(217, 119, 87, 0.15);
+    --aurora-2: rgba(217, 178, 106, 0.12);
+    --aurora-3: rgba(150, 95, 60, 0.14);
+  }
+
+  :root {
+    --radius-md: 12px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    /* iPhone のきまり：入力は16px以上・タップは40px以上（UIの手引き 2章） */
+    --tap: 40px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    /* Webフォントが落ちてこないとき用に iPhone の同系書体を控えに並べる */
+    font-family: 'Zen Maru Gothic', -apple-system, BlinkMacSystemFont,
+                 'Hiragino Maru Gothic ProN', 'Hiragino Sans', sans-serif;
+    overflow: hidden;
+    transition: background 0.5s ease, color 0.5s ease;
+  }
+
+  /* ── 背景①：オーロラ（CSSだけ。ゆっくり動く） ──
+     「動いてるかどうか、じっと見ないと分からない」速度にしてある。 */
+  #aurora { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  #aurora span {
+    position: absolute; display: block; border-radius: 50%;
+    filter: blur(70px); will-change: transform;
+  }
+  #aurora .a1 {
+    width: 78vmin; height: 78vmin; left: -18vmin; top: -12vmin;
+    background: var(--aurora-1); animation: drift1 54s ease-in-out infinite alternate;
+  }
+  #aurora .a2 {
+    width: 62vmin; height: 62vmin; right: -14vmin; top: 22%;
+    background: var(--aurora-2); animation: drift2 47s ease-in-out infinite alternate;
+  }
+  #aurora .a3 {
+    width: 70vmin; height: 70vmin; left: 12%; bottom: -22vmin;
+    background: var(--aurora-3); animation: drift3 61s ease-in-out infinite alternate;
+  }
+  @keyframes drift1 { from { transform: translate(0,0) scale(1); } to { transform: translate(14vmin, 9vmin) scale(1.14); } }
+  @keyframes drift2 { from { transform: translate(0,0) scale(1.06); } to { transform: translate(-11vmin, -8vmin) scale(1); } }
+  @keyframes drift3 { from { transform: translate(0,0) scale(1); } to { transform: translate(9vmin, -12vmin) scale(1.1); } }
+
+  /* 「動きを減らす」設定の端末では止める（iOS の設定を尊重する） */
+  @media (prefers-reduced-motion: reduce) {
+    #aurora .a1, #aurora .a2, #aurora .a3 { animation: none; }
+  }
+
+  /* ── 背景②：ふわふわ（別のアプリから流用） ── */
+  #particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+
+  /* 2026-08-01 元のアプリと同じく visualViewport に追従させる。inset:0 ＋ 100dvh のままだと
+     iOS でキーボードが出たときに画面が縮まず、入力欄がキーボードの下に隠れる。
+     --app-height / --app-top の中身は、下のほうの JS が実測して入れる。 */
+  #app {
+    position: fixed; top: var(--app-top, 0px); left: 0; right: 0; z-index: 1;
+    display: flex; flex-direction: column;
+    max-width: 860px; margin: 0 auto;
+    height: var(--app-height, 100dvh);
+  }
+
+  /* ── ヘッダー ── */
+  header {
+    position: relative;          /* 行き先メニューの位置決めの基準 */
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 10px 14px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+    background: var(--header-bg);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+  }
+  .header-brand { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
+  .header-title {
+    font-size: 19px; font-weight: 700; letter-spacing: 0.02em;
+    display: flex; align-items: center; gap: 7px;
+    background: linear-gradient(100deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    white-space: nowrap;
+  }
+  .header-icon { display: inline-flex; -webkit-text-fill-color: initial; color: var(--accent); }
+  .header-icon svg { width: 19px; height: 19px; }
+  .header-model {
+    font-size: 12.5px; color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* ── モデル名の囲い（2026-09-20）──
+     ボタンをしまっている間（▶ だけの時）だけ、細い枠で囲む。
+     大きさではなく「かたち」で差を付ける（UIの手引き 1-3）。
+     ボタンを出している間は、横幅をボタンに譲るため囲いを外す（字はそのまま読める）。 */
+  header:not(.tray-open) .header-model {
+    padding: 3px 10px; border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 999px; color: #b7b3c4; line-height: 1.3;
+    align-self: flex-start; margin-top: 1px;   /* 囲いの中心を名前の字の中心に合わせる */
+  }
+  .header-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .header-btn {
+    width: var(--tap); height: var(--tap);
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none; background: transparent; color: var(--text-muted);
+    border-radius: var(--radius-md); cursor: pointer;
+    text-decoration: none; transition: color .2s ease, background .2s ease;
+  }
+  .header-btn:hover, .header-btn:active { color: var(--accent); background: rgba(255,255,255,0.05); }
+  .header-btn svg { width: 21px; height: 21px; fill: none; stroke: currentColor;
+                    stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ── ▶ でボタンをしまう／出す（2026-09-20）──
+     元にした別のアプリの画面と同じ形。
+     ★しまっている間は ▶ だけ。押すと左へ4つ（ほかの部屋・スレッド・手帳・設定）が出て、▶ は ◀ に向きを変える。
+     ★▶ はいつも右端のまま動かない＝同じ場所をもう一度押せば、しまえる。
+     ★開いた直後はいつもしまった形（HTML に collapsed を書いてある＝一瞬も並ばない）。覚えない。 */
+  .header-actions.collapsed > .header-btn:not(.header-toggle) { display: none; }
+  .header-actions:not(.collapsed) > .header-btn:not(.header-toggle) { animation: headerTrayIn 0.22s ease backwards; }
+  @keyframes headerTrayIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+  /* ▶ は塗りつぶしの三角。ほかのボタンは線の絵なので、ここだけ塗りに戻す */
+  .header-toggle svg { fill: currentColor; stroke: none; transition: transform 0.25s ease; }
+  .header-actions:not(.collapsed) > .header-toggle svg { transform: rotate(180deg); }
+
+  /* ── 行き先メニュー（別のアプリ ⇄ クロード極 ⇄ 別のアプリ） ── */
+  /* 画面に直接固定する。ヘッダーの中に入れると、ヘッダーの backdrop-filter が
+     スタッキングの区切りを作って、吹き出しの裏に潜ってぼやける（2026-08-01 実機で発生）。 */
+  #go-menu {
+    position: fixed;
+    right: 12px;
+    top: calc(60px + env(safe-area-inset-top));   /* ヘッダーの高さ＝10+40+10 */
+    min-width: 194px; z-index: 200;               /* 設定シート(100)より上 */
+    background: var(--panel-bg);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.55);     /* 吹き出しの上でも輪郭が立つように濃いめ */
+    padding: 6px; display: none;
+    transform-origin: top right;
+  }
+  #go-menu.open { display: block; animation: pop .18s cubic-bezier(.32,.72,0,1) both; }
+  @keyframes pop { from { opacity: 0; transform: scale(.94) translateY(-4px); } to { opacity: 1; transform: none; } }
+  .go-item {
+    display: flex; align-items: center; gap: 11px;
+    min-height: var(--tap); padding: 8px 10px;
+    border-radius: var(--radius-md); text-decoration: none; color: var(--text);
+    transition: background .18s ease;
+  }
+  .go-item:hover, .go-item:active { background: rgba(255,255,255,0.06); }
+  .go-icon { display: inline-flex; color: var(--accent); }
+  .go-icon svg { width: 19px; height: 19px; fill: none; stroke: currentColor;
+                 stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .go-text { flex: 1; display: flex; flex-direction: column; line-height: 1.35; }
+  .go-text b { font-size: 15px; font-weight: 500; }
+  .go-text em { font-size: 12px; font-style: normal; color: var(--text-muted); }
+  .go-arrow { display: inline-flex; color: var(--text-muted); }
+  .go-arrow svg { width: 15px; height: 15px; fill: none; stroke: currentColor;
+                  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ── 横から出るパネル（スレッド・メモリで共通） ──
+     ★幅に vw を使わない（UIの手引き2章：7/21・7/25 の「見切れ」事故の真因）。
+       340px を上限に、画面が狭いときは端から 48px 残す形で縮める。 */
+  #threads-panel, #memory-panel, #techo-panel {
+    position: fixed; top: 0; bottom: 0;
+    width: 340px; max-width: calc(100% - 48px);
+    background: var(--panel-bg);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    z-index: 100; display: flex; flex-direction: column;
+    transition: transform .3s cubic-bezier(.32,.72,0,1);
+  }
+  #threads-panel {
+    left: 0; border-right: 1px solid rgba(255,255,255,0.07);
+    transform: translateX(-101%);
+  }
+  #memory-panel, #techo-panel {
+    right: 0; border-left: 1px solid rgba(255,255,255,0.07);
+    transform: translateX(101%);
+    z-index: 110;                 /* 設定シート(100)の上から出す */
+  }
+  #threads-panel.open, #memory-panel.open, #techo-panel.open { transform: none; }
+
+  /* おぼえていること 1件 */
+  .memo-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 11px 13px; margin-bottom: 6px;
+    border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius-md);
+    background: rgba(255,255,255,0.03);
+  }
+  .memo-text { flex: 1; min-width: 0; font-size: 14.5px; line-height: 1.65; word-break: break-word; }
+  /* たたむ（2026-10-14）：たたんだ記憶は、極が毎回は頭だけ読む。カードも頭だけにして、枠だけの箱にする */
+  .memo-body { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+  .memo-body .memo-text { align-self: stretch; }
+  .memo-fold {
+    min-height: 40px; margin: -6px 0 -12px -8px; padding: 0 8px;
+    border: none; background: transparent; color: var(--text-muted);
+    font-family: inherit; font-size: 12px; letter-spacing: 0.04em; cursor: pointer;
+  }
+  .memo-fold:active { color: var(--text); }
+  .memo-item.folded { background: transparent; border-style: dashed; }
+  .memo-by {
+    font-size: 11px; color: var(--text-muted); white-space: nowrap;
+    border: 1px solid var(--ai-bubble-border); border-radius: 999px; padding: 1px 7px;
+  }
+  .memo-del {
+    width: 32px; height: 32px; flex-shrink: 0; margin: -2px -4px 0 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none; background: transparent; color: var(--text-muted);
+    border-radius: 50%; cursor: pointer;
+  }
+  .memo-del:hover, .memo-del:active { color: #f08a8a; background: rgba(240,138,138,0.12); }
+  .memo-del svg { width: 15px; height: 15px; fill: none; stroke: currentColor;
+                  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .memo-edit {
+    width: 100%; border: 1px solid var(--accent); background: rgba(255,255,255,0.06);
+    color: var(--text); font-family: inherit; font-size: 16px;
+    padding: 7px 9px; border-radius: 8px; outline: none; resize: vertical;
+  }
+  /* ── 考えていたこと（推論）・2026-09-02 ──────────────────────
+     返事の吹き出しのすぐ上に、たたんで置く。
+     ★はじめは閉じておく。読みたいときだけ、持ち主がタップして開く。
+     ★サーバーは前から思考の中身を送っていた（kind==='thinking'）。
+       画面に受け口が無くて捨てていた＝これが「推論が出ない」の正体。
+     ★2026-09-16 元のアプリの「ココロ」の見出しと同じ形にした。考えていることのタブが小さく、
+       勝手にスクロールしていたため、タブを大きくした。
+       前は小さな枠の箱で、中身は高さ220pxまで・書いている間は箱の中を下へ送り続けていた
+       （読もうとしても先へ流れる）。いまは ✦ の印つきの見出しを指の当たる大きさにし、
+       中身は枠なし・左に1本線で、高さの上限なしに全文が伸びる。箱の中を送る JS も外した。
+       困りごとの直しなので、いつもの／人前用のどちらにも効く。 */
+  .think { border: none; background: none; }
+  .think > summary {
+    list-style: none; cursor: pointer;
+    min-height: var(--tap); padding: 0 10px 0 0;
+    display: flex; align-items: center; gap: 7px;
+    font-size: 14px; letter-spacing: 0.04em;
+    color: var(--accent); opacity: .62;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity .2s ease;
+  }
+  .think > summary::-webkit-details-marker { display: none; }
+  .think > summary svg {
+    width: 1.15em; height: 1.15em; flex-shrink: 0;
+    fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .think > summary:hover, .think[open] > summary { opacity: 1; }
+  .think-body {
+    margin: 2px 0 4px; padding: 2px 0 2px 14px;
+    border-left: 2px solid var(--ai-bubble-border);
+    font-size: 13px; line-height: 1.8; color: var(--text-muted);
+    white-space: pre-wrap; word-break: break-word;
+  }
+
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px 10px;
+    padding-top: calc(14px + env(safe-area-inset-top));
+    flex-shrink: 0;
+  }
+  .panel-title { font-size: 17px; font-weight: 700; }
+  .thread-new {
+    display: flex; align-items: center; gap: 9px;
+    margin: 0 12px 10px; padding: 11px 14px; min-height: var(--tap);
+    border: 1px dashed var(--ai-bubble-border); border-radius: var(--radius-md);
+    background: transparent; color: var(--accent);
+    font-family: inherit; font-size: 15px; cursor: pointer;
+    transition: background .2s ease;
+  }
+  .thread-new:hover, .thread-new:active { background: rgba(255,255,255,0.05); }
+  .thread-new svg { width: 17px; height: 17px; fill: none; stroke: currentColor;
+                    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  /* 探す（元のアプリの検索窓から） */
+  .search-box {
+    display: flex; align-items: center; gap: 9px;
+    margin: 0 12px 9px; padding: 0 13px; min-height: var(--tap);
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+    border-radius: var(--radius-md);
+  }
+  .search-box svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--text-muted);
+                    fill: none; stroke: currentColor; stroke-width: 1.7;
+                    stroke-linecap: round; stroke-linejoin: round; }
+  .search-box input {
+    flex: 1; min-width: 0; border: none; background: transparent; outline: none;
+    color: var(--text); font-family: inherit; font-size: 16px;  /* ★iOS の拡大よけ */
+  }
+  .search-box input::placeholder { color: var(--text-muted); }
+  .search-box input::-webkit-search-cancel-button { display: none; }
+
+  /* 印で絞る。「すべて」以外は重ねて押せる＝全部ついているスレだけ残る（AND） */
+  .filter-chips {
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px; margin-bottom: 9px;
+  }
+  .filter-chips.model-chips { margin-top: -4px; }
+  .filter-chips.model-chips:empty { display: none; }
+  .filter-chip {
+    min-height: 32px; padding: 5px 12px;
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04);
+    color: var(--text-muted); font-family: inherit; font-size: 13px;
+    border-radius: 999px; cursor: pointer;
+    transition: color .18s ease, background .18s ease, border-color .18s ease;
+  }
+  .filter-chip:hover { color: var(--text); }
+  .filter-chip.active {
+    color: #1a1526; font-weight: 700; border-color: transparent;
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+  }
+
+  /* プロジェクトの手入れ（設定シート）。チップと同じ言語で、タップは 40px 以上 */
+  .proj-actions {
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px;
+  }
+  .proj-btn {
+    min-height: 40px; padding: 9px 14px;
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04);
+    color: var(--text-muted); font-family: inherit; font-size: 13px;
+    border-radius: 999px; cursor: pointer;
+    transition: color .18s ease, background .18s ease, border-color .18s ease;
+  }
+  .proj-btn:hover { color: var(--text); }
+  .proj-btn.on {
+    color: #1a1526; font-weight: 700; border-color: transparent;
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+  }
+  .proj-btn:disabled { opacity: .35; cursor: default; }
+
+  /* フォルダの見出し（たたむ） */
+  .folder-head {
+    display: flex; align-items: center; gap: 7px;
+    padding: 9px 13px 5px; min-height: 34px;
+    font-size: 12.5px; color: var(--text-muted); cursor: pointer;
+  }
+  .folder-head svg { width: 14px; height: 14px; flex-shrink: 0; fill: none; stroke: currentColor;
+                     stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .folder-head .chevron { transition: transform .18s ease; }
+  .folder-head.collapsed .chevron { transform: rotate(90deg); }
+  .folder-body.collapsed { display: none; }
+
+  .thread-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 12px 20px; }
+  .thread-item {
+    position: relative;
+    display: flex; align-items: flex-start; gap: 9px;
+    padding: 11px 13px; min-height: var(--tap); margin-bottom: 5px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md); cursor: pointer;
+    transition: background .18s ease;
+  }
+  .thread-item:hover, .thread-item:active { background: rgba(255,255,255,0.05); }
+  .thread-item.on { background: var(--ai-bubble-bg); border-color: var(--ai-bubble-border); }
+  .thread-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .thread-title {
+    font-size: 15px; line-height: 1.45;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .thread-meta {
+    display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+    font-size: 12px; color: var(--text-muted);
+  }
+  .thread-marks { display: inline-flex; gap: 4px; font-size: 12.5px; }
+  .thread-marks .heart { color: #f0a8c8; }
+  .thread-marks .star  { color: #e8c96a; }
+  /* モデルの短い印（Opus は数字だけ・他は頭文字を足す） */
+  .model-tag {
+    font-size: 11px; padding: 1px 7px; border-radius: 999px;
+    border: 1px solid var(--ai-bubble-border); color: var(--accent);
+    white-space: nowrap;
+  }
+
+  /* …メニュー（名前を変える・フォルダ・奥・削除） */
+  .thread-kebab {
+    width: 30px; height: 30px; flex-shrink: 0; margin: -2px -4px 0 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none; background: transparent; color: var(--text-muted);
+    border-radius: var(--radius-md); cursor: pointer; font-size: 17px; line-height: 1;
+  }
+  .thread-kebab:hover, .thread-kebab:active { color: var(--accent); background: rgba(255,255,255,0.07); }
+  .kebab-menu {
+    position: absolute; right: 8px; top: 38px; z-index: 30; min-width: 176px;
+    background: var(--panel-bg); border: 1px solid rgba(255,255,255,0.09);
+    border-radius: var(--radius-md); box-shadow: var(--shadow);
+    padding: 5px; display: none;
+  }
+  .kebab-menu.open { display: block; animation: pop .16s ease both; }
+  .kebab-item {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    min-height: 38px; padding: 8px 11px;
+    border: none; background: transparent; color: var(--text);
+    font-family: inherit; font-size: 14px; text-align: left;
+    border-radius: 8px; cursor: pointer;
+  }
+  .kebab-item:hover, .kebab-item:active { background: rgba(255,255,255,0.07); }
+  .kebab-item.danger { color: #f08a8a; }
+
+  /* タイトルをその場で書き換える入力欄 */
+  .title-input {
+    width: 100%; border: 1px solid var(--accent); background: rgba(255,255,255,0.06);
+    color: var(--text); font-family: inherit; font-size: 16px;
+    padding: 6px 9px; border-radius: 8px; outline: none;
+  }
+  .thread-empty { padding: 26px 14px; text-align: center; font-size: 14px; color: var(--text-muted); }
+
+  /* ── 会話 ── */
+  #chat {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 18px 14px 8px; display: flex; flex-direction: column; gap: 16px;
+  }
+
+  /* ── いちばん下へ（↓）ボタン（2026-09-29）──
+     #app（position:fixed）の中に absolute で重ねる＝会話の行の高さは1pxも動かない。
+     縦の位置（bottom）は JS が「会話の箱の下端の少し上」に合わせる。入力欄が伸びても、写真が並んでも追いつく。
+     見た目は36pxの丸、指の当たる範囲は ::before で44px。浮いている面なので影は --shadow。
+     ★いつもの3色（藤・水・古書）には --accent-rgb が無いので、ふちは吹き出しと同じ --ai-bubble-border。 */
+  #btn-to-bottom {
+    position: absolute; left: 50%; bottom: 96px; z-index: 5;
+    width: 36px; height: 36px; padding: 0; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg); color: var(--accent);
+    border: 1px solid var(--ai-bubble-border); box-shadow: var(--shadow);
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none;
+    opacity: 0; pointer-events: none; transform: translate(-50%, 6px);
+    transition: opacity 0.18s, transform 0.18s;
+  }
+  #btn-to-bottom::before { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+  #btn-to-bottom.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+  #btn-to-bottom svg { width: 18px; height: 18px; fill: none; stroke: currentColor;
+                       stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+  .msg { display: flex; flex-direction: column; gap: 5px; max-width: 88%; }
+  .msg.ai   { align-self: flex-start; }
+  .msg.user { align-self: flex-end; align-items: flex-end; }
+  .msg-name { font-size: 12.5px; color: var(--text-muted); padding: 0 6px; }
+  .bubble {
+    position: relative;          /* 右下に重ねる道具の基準 */
+    padding: 13px 16px 15px; border-radius: var(--radius-lg);
+    font-size: 16px; line-height: 1.85;
+    word-break: break-word; white-space: pre-wrap;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    animation: rise .34s ease both;
+  }
+  .msg.ai .bubble {
+    background: var(--ai-bubble-bg); border: 1px solid var(--ai-bubble-border);
+    border-bottom-left-radius: 6px;
+  }
+  .msg.user .bubble {
+    background: var(--user-bubble-bg); border: 1px solid var(--user-bubble-border);
+    border-bottom-right-radius: 6px;
+  }
+  /* 発言の下に、小さく時刻（2026-09-01）。user は .msg.user の align-items で右へ寄る */
+  .msg-time { font-size: 10.5px; color: var(--text-muted); opacity: .8; padding: 0 6px; }
+  /* 日付が変わるところの区切り（#chat が縦の flex なので align-self で中央に置ける） */
+  .day-sep { align-self: center; font-size: 11.5px; color: var(--text-muted); }
+  .day-sep span {
+    border: 1px solid var(--ai-bubble-border); background: var(--ai-bubble-bg);
+    border-radius: 999px; padding: 3px 12px;
+  }
+  /* 記憶が動いたときに、会話の流れへ残す帯（2026-09-01）
+     設定を開かなくても、何が入ったかその場で見える。 */
+  .memo-chip {
+    align-self: center; max-width: 92%;
+    font-size: 11.5px; line-height: 1.7; color: var(--text-muted);
+    border: 1px dashed var(--ai-bubble-border); background: var(--ai-bubble-bg);
+    border-radius: var(--radius-md); padding: 7px 13px;
+    word-break: break-word; white-space: pre-wrap;
+  }
+  /* リマインダーの札（2026-09-19）。見た目は記憶の帯と同じ（remindChip） */
+  .memo-chip.remind-chip { color: var(--text); text-align: center; }
+  .remind-btn {
+    display: inline-block; margin-top: 6px; padding: 10px 18px; min-height: 40px;
+    border-radius: 999px; text-decoration: none; font-size: 13px; font-weight: 600;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #1a1526;
+  }
+  html[data-look="plain"] .remind-btn { background: var(--plain-orange); color: #fff; border-radius: 12px; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+
+  /* ── 考えている間のふわふわ（返事が来るまで吹き出しの中で動く） ── */
+  .typing { display: inline-flex; align-items: center; gap: 6px; padding: 3px 0; }
+  .typing i {
+    width: 8px; height: 8px; border-radius: 50%; display: block;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    animation: puff 1.35s ease-in-out infinite;
+  }
+  .typing i:nth-child(2) { animation-delay: .17s; }
+  .typing i:nth-child(3) { animation-delay: .34s; }
+  @keyframes puff {
+    0%, 62%, 100% { opacity: .28; transform: translateY(0) scale(.82); }
+    31%           { opacity: 1;   transform: translateY(-5px) scale(1); }
+  }
+  /* 道具を使っている間だけ、ふわふわの前に小さく出す */
+  .typing-label { font-size: 13.5px; color: var(--text-muted); margin-right: 8px; }
+  @media (prefers-reduced-motion: reduce) {
+    .typing i { animation-duration: 2.6s; }   /* 止めると「固まった」に見えるので、ゆっくりにする */
+  }
+
+  /* ── もう一度／編集：吹き出しの右下角に半透明で重ねる（元のアプリと同じ作法） ──
+     position:absolute なので、出ても消えても行の高さが変わらない（＝がくん封じ）。
+     普段は薄いオーラ、触った瞬間だけ濃くなる。 */
+  .msg-actions {
+    position: absolute; right: 6px; bottom: 4px;
+    display: flex; gap: 2px;
+    opacity: 0.35;
+    transition: opacity .2s ease;
+  }
+  .msg-actions:hover, .msg-actions:focus-within, .msg-actions:active { opacity: 1; }
+  .msg-action-btn {
+    width: 34px; height: 34px; flex-shrink: 0; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; border: none; border-radius: 50%;
+    color: var(--text-muted); cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background .2s, color .2s, transform .15s;
+  }
+  .msg-action-btn svg { width: 15px; height: 15px; display: block; fill: none;
+                        stroke: currentColor; stroke-width: 1.8;
+                        stroke-linecap: round; stroke-linejoin: round; }
+  .msg-action-btn:hover  { background: rgba(184,160,216,0.18); color: var(--accent); }
+  .msg-action-btn:active { background: rgba(184,160,216,0.32); color: var(--accent); transform: scale(0.92); }
+
+  /* メモリに書いたときの1行通知（第10条の「書いたら伝える」） */
+  .memo-note {
+    align-self: center; max-width: 92%;
+    display: flex; align-items: center; gap: 7px;
+    font-size: 13px; color: var(--text-muted);
+    background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 999px; padding: 7px 15px;
+  }
+  .memo-note svg { width: 14px; height: 14px; flex-shrink: 0; fill: none;
+                   stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ── 入力欄 ── */
+  #composer {
+    flex-shrink: 0; padding: 10px 12px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    background: var(--header-bg);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .composer-inner {
+    display: flex; align-items: flex-end; gap: 8px;
+    background: var(--input-bg); border: 1px solid rgba(255,255,255,0.09);
+    border-radius: var(--radius-xl); padding: 5px;
+    transition: border-color .2s ease;
+  }
+  .composer-inner:focus-within { border-color: var(--ai-bubble-border); }
+  #input {
+    flex: 1; min-width: 0; border: none; background: transparent; resize: none;
+    color: var(--text); font-family: inherit;
+    font-size: 16px;              /* ★16px 未満だと iOS がタップで拡大する */
+    line-height: 1.65; padding: 9px 0; max-height: 140px; outline: none;
+  }
+  #input::placeholder { color: var(--text-muted); }
+  #btn-send {
+    width: var(--tap); height: var(--tap); flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none; border-radius: 50%; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #1a1526; transition: transform .15s ease, opacity .2s ease;
+  }
+  #btn-send:active { transform: scale(0.92); }
+  #btn-send svg { width: 19px; height: 19px; fill: none; stroke: currentColor;
+                  stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+  /* ■（止める・2026-09-17）。書いている最中で、入力欄が空のときだけこの顔になる。
+     テーマが3つ（藤・水・古書）あるので色はべた書きせず、白の低アルファの面にする */
+  #btn-send.stopping { background: rgba(255,255,255,0.16); color: var(--text); }
+  #btn-send.stopping svg { fill: currentColor; stroke: none; width: 16px; height: 16px; }
+
+  /* ── 写真を送る（2026-08-19・別のアプリから移植）──
+     送信ボタンとは「かたち」で差をつける（塗り vs 線）。大きさ・文字の大きさでは差をつけない
+     （UIの手引き4章）。当たりは送信と同じ var(--tap)。
+     幅は px 固定＝vw を使わない（「見切れ」事故の真因）。
+     ★色はテーマが3つ（藤・水・古書）あるので、元のアプリの藤色べた書きは持ってこない。
+       濃く出る所だけ var(--accent)、うっすらした線・面は白の低アルファにする。 */
+  #photo-btn {
+    width: var(--tap); height: var(--tap); flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(255,255,255,0.16); border-radius: 50%;
+    background: transparent; color: var(--accent); cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none;
+    transition: background .2s, border-color .2s, transform .15s;
+  }
+  #photo-btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor;
+                   stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  #photo-btn:hover:not(:disabled)  { background: rgba(255,255,255,0.07); }
+  #photo-btn:active:not(:disabled) { background: rgba(255,255,255,0.11); transform: scale(0.92); }
+  #photo-btn:disabled { opacity: .35; cursor: not-allowed; }
+  /* 写真を選んでいる間だけ、輪をはっきりさせる（半透明で弱くしない＝手引き4章） */
+  #photo-btn.has-photos { border-color: var(--accent); background: var(--input-bg); }
+
+  /* 送る前の写真置き場（入力欄の上。選んだ写真をここに並べる） */
+  #photo-tray { display: none; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  #photo-tray.on { display: flex; }
+  /* チップ自体が「はずす」ボタン（64px＝当たり40px以上。小さな×を別に置かない） */
+  .photo-chip {
+    position: relative; width: 64px; height: 64px; padding: 0;
+    border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-md);
+    overflow: hidden; background: var(--input-bg); cursor: pointer;
+    -webkit-tap-highlight-color: transparent; flex-shrink: 0;
+  }
+  .photo-chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* 送る前のファイル（PDF など）の名札（2026-10-01）。写真のチップと同じ高さ・同じ「タップで外す」 */
+  .file-chip {
+    position: relative; height: 64px; max-width: 220px; padding: 0 28px 0 10px;
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-md);
+    overflow: hidden; background: var(--input-bg); color: var(--text); font: inherit;
+    cursor: pointer; -webkit-tap-highlight-color: transparent; flex-shrink: 0;
+  }
+  .file-chip .file-tag {
+    flex-shrink: 0; padding: 3px 6px; border: 1px solid var(--accent); border-radius: 6px;
+    color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  }
+  .file-chip .file-name {
+    font-size: 12.5px; line-height: 1.3; text-align: left; word-break: break-all;
+    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .file-chip:active { transform: scale(0.96); }
+  .photo-chip .photo-x, .file-chip .photo-x {
+    position: absolute; top: 0; right: 0; width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.72); color: #fff; font-size: 13px; line-height: 1;
+    border-bottom-left-radius: var(--radius-md);
+  }
+  .photo-chip:active { transform: scale(0.96); }
+  /* 読めなかった写真があったときの札。黙って消えると「押したのに出ない」になる。
+     差は「かたち」で付ける（破線の囲い）。文字を大きくしない。 */
+  .photo-skipped {
+    display: flex; align-items: center; min-height: var(--tap); padding: 0 12px;
+    border: 1px dashed var(--accent); border-radius: var(--radius-md);
+    color: var(--accent); font-size: 12.5px; line-height: 1.3;
+    background: transparent; cursor: pointer; flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 会話に出す写真（自分が送ったもの）。幅は % ＝ vw は使わない */
+  .msg-photos { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; justify-content: flex-end; }
+  .msg-photo {
+    width: 148px; max-width: 62%; border-radius: var(--radius-md); display: block;
+    border: 1px solid rgba(255,255,255,0.10);
+    cursor: zoom-in;                       /* タップすると大きく見られる、の手がかり */
+  }
+
+  /* ── 送った写真を大きく見る（2026-08-18 の覆いをそのまま）──
+     ページごとズームすると Safari の上下のバーが居座ったまま拡大されて写真が挟まれるので、
+     ★ページは1ミリもズームさせず、この覆いの中だけで拡大する。
+     幅は vw を使わない（inset:0 と % だけ）。 */
+  #photo-viewer {
+    position: fixed; inset: 0; z-index: 200; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(6, 4, 12, 0.96);
+    touch-action: none;                    /* ページ側のピンチ・スクロールをここで止める */
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none;   /* 覆い（クロム）だけ。写真自身には付けない */
+    animation: fadeIn .18s ease;
+  }
+  #photo-viewer.open { display: flex; }
+  #photo-viewer-img {
+    max-width: 100%; max-height: 100%;
+    object-fit: contain; display: block;
+    transform-origin: center center;
+    will-change: transform;
+    /* ★user-select も -webkit-touch-callout も付けない
+       ＝長押しで写真を保存できる iOS の標準動作を殺さない */
+  }
+  /* 写真の面を1pxも削らないよう、帯は作らず右上に重ねる（当たりは44px） */
+  #photo-viewer-close {
+    position: absolute; top: 10px; right: 10px;
+    width: 44px; height: 44px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(255,255,255,0.22);
+    background: rgba(0,0,0,0.72); color: var(--accent);
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none;
+    transition: transform .15s;
+  }
+  #photo-viewer-close svg { width: 20px; height: 20px; fill: none; stroke: currentColor;
+                            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  #photo-viewer-close:active { transform: scale(0.94); }
+
+  /* ── 送った写真の一覧（元のアプリのシール帳の「写真」の面と同じもの）──
+     送った写真を見返せる置き場。
+     ★幅に vw を使わない。スレッド・メモリのパネルと同じ寸法。 */
+  #photos-panel {
+    position: fixed; top: 0; bottom: 0; right: 0;
+    width: 340px; max-width: calc(100% - 48px);
+    background: var(--panel-bg);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-left: 1px solid rgba(255,255,255,0.07);
+    z-index: 110;                 /* 設定シート(100)の上から出す */
+    display: flex; flex-direction: column;
+    transform: translateX(101%);
+    transition: transform .3s cubic-bezier(.32,.72,0,1);
+  }
+  #photos-panel.open { transform: none; }
+  .photo-day { margin-bottom: 16px; }
+  /* 日付は「面」ではなく線で区切る（囲いを増やすとにぎやかになりすぎる） */
+  .photo-date {
+    font-size: 13.5px; color: var(--accent); letter-spacing: .04em;
+    padding-bottom: 5px; margin-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+  }
+  /* 3列。幅は % ＝ vw は使わない */
+  .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .photo-thumb {
+    width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block;
+    border-radius: var(--radius-md); border: 1px solid rgba(255,255,255,0.10);
+    background: var(--input-bg); cursor: zoom-in;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .photo-thumb:active { transform: scale(0.97); }
+  /* まだ1枚も無いときの案内。色は不透明（半透明にすると背景の黒が混ざって濁る＝手引き4章） */
+  .photo-empty {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 88px; padding: 16px; text-align: center; line-height: 1.6;
+    border: 1px dashed var(--accent); border-radius: var(--radius-md);
+    color: var(--accent); font-size: 13.5px;
+  }
+
+  /* ── 設定シート ── */
+  #settings-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    z-index: 99; display: none;
+  }
+  #settings-overlay.open { display: block; animation: fadeIn .2s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  #settings-sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 860px;
+    background: var(--panel-bg);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    box-shadow: var(--shadow); z-index: 100;
+    display: flex; flex-direction: column;
+    max-height: 86dvh; transform: translateY(100%);
+    transition: transform .3s cubic-bezier(.32,.72,0,1);
+  }
+  #settings-sheet.open { transform: none; }
+  .sheet-handle { padding: 10px 0 4px; display: flex; justify-content: center; flex-shrink: 0; }
+  .sheet-handle span { width: 38px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.18); }
+  .sheet-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 20px 12px; flex-shrink: 0;
+  }
+  .sheet-title { font-size: 17px; font-weight: 700; }
+  .sheet-body {
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 4px 20px 24px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 15px;
+  }
+  .setting-group-label {
+    font-size: 12.5px; color: var(--accent); font-weight: 700;
+    letter-spacing: .04em; margin-top: 6px;
+  }
+  .setting-row { display: flex; align-items: center; gap: 12px; }
+  .setting-label { flex: 0 0 92px; font-size: 14px; color: var(--text-muted); }
+  .model-select {
+    flex: 1; min-width: 0;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--ai-bubble-border);
+    color: var(--text); font-family: inherit;
+    font-size: 16px;              /* ★iPhone のきまり（拡大しない16px／指が当たる40px） */
+    min-height: var(--tap);
+    padding: 8px 10px; border-radius: var(--radius-md); outline: none; cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+  }
+  .model-select option { background: var(--option-bg); color: var(--text); }
+  .setting-note { font-size: 13.5px; line-height: 1.7; color: var(--text-muted); padding: 0 2px; margin-top: -7px; }
+  .setting-note strong { color: var(--accent); font-weight: 600; }
+
+  /* オン・オフのスイッチ（ウェブ検索用） */
+  .switch { flex: 1; display: flex; align-items: center; justify-content: flex-end; }
+  .switch input { display: none; }
+  .switch label {
+    position: relative; width: 58px; height: var(--tap);
+    display: inline-flex; align-items: center; cursor: pointer;
+  }
+  .switch label::before {
+    content: ''; position: absolute; left: 0; width: 58px; height: 32px;
+    border-radius: 999px; background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.10); transition: background .25s ease;
+  }
+  .switch label::after {
+    content: ''; position: absolute; left: 4px; width: 24px; height: 24px;
+    border-radius: 50%; background: var(--text-muted);
+    transition: transform .25s cubic-bezier(.32,.72,0,1), background .25s ease;
+  }
+  .switch input:checked + label::before { background: linear-gradient(120deg, var(--accent), var(--accent-2)); }
+  .switch input:checked + label::after  { transform: translateX(26px); background: #fff; }
+
+  /* テーマを選ぶ丸 */
+  .theme-picker { flex: 1; display: flex; gap: 10px; }
+  .theme-dot {
+    width: var(--tap); height: var(--tap); border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; padding: 3px; background: transparent;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: border-color .2s ease;
+  }
+  .theme-dot i { display: block; width: 100%; height: 100%; border-radius: 50%; }
+  .theme-dot[data-for="iris"]   i { background: linear-gradient(135deg, #b8a0d8, #f0a8c8); }
+  .theme-dot[data-for="water"]  i { background: linear-gradient(135deg, #8fd6c8, #a8c8f0); }
+  .theme-dot[data-for="claude"] i { background: linear-gradient(135deg, #d97757, #d9b26a); }
+  .theme-dot.on { border-color: var(--accent); }
+
+  .sheet-textarea {
+    width: 100%; min-height: 132px; resize: vertical;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--ai-bubble-border);
+    color: var(--text); font-family: inherit;
+    font-size: 16px; line-height: 1.75;
+    padding: 12px 14px; border-radius: var(--radius-md); outline: none;
+  }
+  .sheet-actions { display: flex; gap: 8px; }
+  .sheet-btn {
+    flex: 1; min-height: var(--tap); border-radius: var(--radius-md); cursor: pointer;
+    border: 1px solid var(--ai-bubble-border); background: rgba(255,255,255,0.05);
+    color: var(--text); font-family: inherit; font-size: 15px;
+  }
+  .sheet-btn.primary {
+    border: none; color: #1a1526; font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  }
+
+  /* ── 設定シートの「見た目」（いつもの／人前用）2026-09-15。押した瞬間に変わる ── */
+  .look-switch {
+    flex: 1; min-width: 0; display: flex; gap: 4px; padding: 3px;
+    border: 1px solid var(--ai-bubble-border); border-radius: var(--radius-md);
+  }
+  .look-btn {
+    flex: 1 1 0; min-width: 0; min-height: var(--tap); padding: 0 4px;   /* 2026-09-24 3つ目（オーロラ）を足して、4文字が折れない幅に（8→4px） */
+    background: transparent; border: none; border-radius: 9px;
+    color: var(--text-muted); font-family: inherit; font-size: 16px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; transition: background .2s ease, color .2s ease;
+  }
+  .look-btn.on { background: rgba(255,255,255,0.10); color: var(--text); }
+  /* 人前用の見た目だけで出るヘッダーの2段（いつもの画面では出さない） */
+  .header-plain-model, .header-plain-route { display: none; }
+
+  /* ══ いつもの見た目：返事を「名前＋考えていたことの段」と「左詰の本文」に（2026-09-16）══
+     元にした別のアプリの「いつもの見た目」と同じもの。顔アイコンの分の空白と思考プロセスの空白を無くして、左詰の本文にする。
+     本文の裏の枠と薄い紫背景はとって、ふわふわの背景の上に文字を出す。
+     ★極には顔アイコンが無いので、返事の上の名前（実務 など）をアイコンの位置に置き、その右に「考えていたこと」。
+     ★全部 html:not([data-look="plain"]) の中だけで効く＝人前用には1文字も効かない。藤・水・古書のどの色でも同じ形。
+     ★display:contents は使わない（iOS Safari で当たり判定がずれる）。返事の箱そのものを2列の grid にする。
+     戻したいとき：この段落を消す。 */
+  html:not([data-look="plain"]) .msg.ai {
+    display: grid; grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 10px; row-gap: 8px; align-items: start;
+    max-width: 100%; align-self: stretch;
+  }
+  /* 名前：アイコンの位置。見出しと同じ高さにして、上下の真ん中をそろえる。左は本文の左端にそろえる */
+  html:not([data-look="plain"]) .msg.ai > .msg-name {
+    grid-column: 1; grid-row: 1;
+    display: flex; align-items: center; min-height: var(--tap); padding: 0;
+  }
+  /* 考えていたこと：名前の右。開いた中身も名前の列には入らない */
+  html:not([data-look="plain"]) .msg.ai > .think { grid-column: 2; grid-row: 1; min-width: 0; }
+  /* 本文：名前の下から左詰で横いっぱい。枠・面・ぼかしを外して、オーロラと光の粒の上にそのまま。
+     下の 30px は「もう一度」の置き場（はじめから空けておく＝付いても行の高さは動かない） */
+  html:not([data-look="plain"]) .msg.ai > .bubble {
+    grid-column: 1 / -1;
+    background: none; border: none; border-radius: 0; padding: 0 0 30px;
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  html:not([data-look="plain"]) .msg.ai .bubble .msg-actions { right: auto; left: -8px; bottom: -4px; }
+  html:not([data-look="plain"]) .msg.ai > .msg-time { grid-column: 1 / -1; padding: 0; margin-top: -4px; }
+
+  /* ══ 人前用の見た目（2026-09-15）══
+     元にした別のアプリの人前用と同じもの。シンプルでビジネス的な、クロード公式に似た見た目。
+     濃いめのグレー背景、文字入力は黒、送信ボタンはオレンジ。アイコンは無し。外で使って人に見られても困らない。いつもの見た目と切り替えができる。
+     ★ここから下は全部 html[data-look="plain"] の中だけで効く＝いつもの画面（藤・水・古書）には1文字も効かない。
+     ★テーマの変数（[data-theme=…]）より強い書き方にしてあるので、どの色を選んでいても同じ人前用になる。
+     ★切り替えは設定シートのいちばん上（applyLook）。覚え場所は localStorage の kiwami_look。
+       開いた瞬間にいつもの画面が一瞬出ないよう、head の終わりの小さな script で先に読む
+       （極は index.html をそのまま配るので置ける）。
+     戻したいとき：この段落・head の終わりの script・設定シートの「見た目」の行・applyLook の係を消す。 */
+  html[data-look="plain"] {
+    --bg: #262624;               /* 濃いめのグレー */
+    --accent: #ecebe4;           /* 強調は白に近い灰。橙は送信ボタンにだけ使う */
+    --accent-2: #ecebe4;
+    --text: #f0eee6;
+    --text-muted: #a6a39a;       /* 不透明（手引き1-2：半透明にすると背景が混ざって濁る） */
+    --ai-bubble-bg: #2f2f2c;
+    --ai-bubble-border: #3e3d39;
+    --user-bubble-bg: #141413;
+    --user-bubble-border: #141413;
+    --input-bg: #141413;         /* 文字入力は黒 */
+    --header-bg: #262624;
+    --panel-bg: #2f2f2c;
+    --option-bg: #2f2f2c;
+    --particle: 166, 163, 154;
+    --aurora-1: transparent; --aurora-2: transparent; --aurora-3: transparent;
+    --plain-orange: #d97757;     /* 古書の橙と同じ（2026-08-02） */
+    --plain-line: #3e3d39;
+  }
+  /* 字：丸ゴシック → iPhone の標準ゴシック（ヒラギノ角ゴ） */
+  html[data-look="plain"], html[data-look="plain"] body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN',
+                 'Segoe UI', 'Yu Gothic UI', Meiryo, sans-serif;
+  }
+  html[data-look="plain"] #aurora,
+  html[data-look="plain"] #particles { display: none; }      /* オーロラも光の粒も出さない */
+
+  /* ヘッダー：プロジェクト名（印つき）は出さず、モデル名を白い太字で。下にアカウントを小さく */
+  html[data-look="plain"] header {
+    backdrop-filter: none; -webkit-backdrop-filter: none; border-bottom-color: transparent;
+  }
+  html[data-look="plain"] .header-title,
+  html[data-look="plain"] .header-model { display: none; }
+  html[data-look="plain"] .header-brand {
+    flex-direction: column; align-items: flex-start; gap: 0; flex-shrink: 1; min-width: 0;
+  }
+  html[data-look="plain"] .header-plain-model,
+  html[data-look="plain"] .header-plain-route {
+    display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  html[data-look="plain"] .header-plain-model {
+    font-size: 16px; font-weight: 600; color: var(--text); letter-spacing: 0.01em; line-height: 1.25;
+  }
+  html[data-look="plain"] .header-plain-route { font-size: 11.5px; color: var(--text-muted); letter-spacing: 0.04em; }
+
+  /* 会話：返事の上の名前は出さない（アイコンにあたるもの）。返事は吹き出しを外して横いっぱいの文章に */
+  html[data-look="plain"] .msg.ai .msg-name { display: none; }
+  html[data-look="plain"] .msg.ai { max-width: 100%; }
+  html[data-look="plain"] .bubble { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  html[data-look="plain"] .msg.ai .bubble {
+    background: none; border: none; border-radius: 0; padding: 2px 0 30px;
+  }
+  /* 「もう一度」は返事の下の左に置く。場所ははじめから空けておく＝付いても行の高さは動かない */
+  html[data-look="plain"] .msg.ai .bubble .msg-actions { right: auto; left: -8px; bottom: -4px; }
+  html[data-look="plain"] .msg.user .bubble { border-radius: 18px; }
+  html[data-look="plain"] .msg-action-btn:hover,
+  html[data-look="plain"] .msg-action-btn:active { background: #3a3935; color: var(--text); }
+  html[data-look="plain"] .thread-marks .heart,
+  html[data-look="plain"] .thread-marks .star { color: var(--text-muted); }
+
+  /* 入力：黒い箱の中に、写真・文字・送信（極はもともと箱の形なので、色だけ合わせる） */
+  html[data-look="plain"] #composer {
+    backdrop-filter: none; -webkit-backdrop-filter: none; border-top-color: transparent;
+  }
+  html[data-look="plain"] .composer-inner { border-color: var(--plain-line); }
+  html[data-look="plain"] .composer-inner:focus-within { border-color: #5a5852; }
+  html[data-look="plain"] #photo-btn { border-color: var(--plain-line); color: #c2c0b6; }
+  html[data-look="plain"] #photo-btn.has-photos { border-color: var(--accent); }
+  html[data-look="plain"] #btn-to-bottom { border-color: var(--plain-line); }
+  /* 送信はオレンジの角丸・白い矢印 */
+  html[data-look="plain"] #btn-send {
+    background: var(--plain-orange); color: #fff; border-radius: 12px;
+  }
+  /* 止める（書いている最中）は灰色の角丸（人前用と同じ色） */
+  html[data-look="plain"] #btn-send.stopping { background: #3a3935; color: #fff; }
+
+  /* シートの中：オンのスイッチは白い玉が見える濃さの灰。「いろ」の行は人前用では押しても変わらないので隠す */
+  html[data-look="plain"] .switch input:checked + label::before { background: #7c7a72; }
+  html[data-look="plain"] #theme-group-label,
+  html[data-look="plain"] #theme-row { display: none; }
+  html[data-look="plain"] .look-btn.on { background: #45443f; }
+  /* 選んでいる札・保存するボタンの文字は、もともと濃い紫（#1a1526）で書いてあるので、黒に近い灰へ */
+  html[data-look="plain"] .filter-chip.active,
+  html[data-look="plain"] .proj-btn.on,
+  html[data-look="plain"] .sheet-btn.primary { color: #1f1e1d; }
+
+  /* ══ オーロラの見た目（2026-09-24）══
+     元にした別のアプリの 9/23 のオーロラと同じもの。▶ は 9/20 から入っている。
+     ★ここから下は全部 html[data-look="aurora"] の中だけで効く＝いつもの・人前用には1文字も効かない。
+     ★返事の並び（名前＋考えていたことの段・左詰の本文）は「いつもの見た目」の段落（:not(plain)）がそのまま効く。
+     ★色は藤・桜・水色で決め打ち（人前用と同じく、テーマの変数より強い書き方）。「いろ」の行は隠す。
+     ★極の #aurora（filter: blur の丸3つ）は隠し、body の疑似要素2つの放射状グラデにする（iPhone で blur は重い）。
+       動かすのは transform・opacity・小さな部品の背景位置だけ。
+     ★元のアプリのアイコンの光の輪は、極ではヘッダーの印に付ける（返事ごとのアイコンが無いため）。
+     戻したいとき：この段落・設定シートの「オーロラ」のボタン1つ・head の数行と LOOK_THEME_COLOR の aurora を消す。 */
+  @property --au-ring { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+
+  html[data-look="aurora"] {
+    --bg: #06050e;
+    --bg-rgb: 6, 5, 14;
+    --accent: #c9b3f7;                   /* 藤 */
+    --accent-2: #ffb3d9;                 /* 桜 */
+    --accent-3: #8fe0ff;                 /* 水色 */
+    --accent-rgb: 201, 179, 247;
+    --accent-2-rgb: 255, 179, 217;
+    --accent-3-rgb: 143, 224, 255;
+    --text: #f2effb;
+    --text-muted: #a99fc6;               /* 不透明（手引き1-2） */
+    --ai-bubble-bg: rgba(201, 179, 247, 0.08);
+    --ai-bubble-border: rgba(201, 179, 247, 0.28);
+    --user-bubble-bg: rgba(255, 255, 255, 0.05);
+    --user-bubble-border: transparent;   /* 枠は ::before のグラデの線で描く */
+    --input-bg: rgba(255, 255, 255, 0.05);
+    --header-bg: rgba(6, 5, 14, 0.55);
+    --panel-bg: rgba(12, 10, 24, 0.78);  /* パネルは本物のすりガラス（後ろのオーロラが透ける） */
+    --option-bg: #14112a;
+    --particle: 201, 179, 247;
+    --shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+    --glass: rgba(255, 255, 255, 0.045);
+    --glass-line: rgba(255, 255, 255, 0.11);
+    --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.09);
+    background: var(--bg);
+  }
+  html[data-look="aurora"] ::selection { background: rgba(var(--accent-rgb), 0.35); }
+
+  /* 夜空のオーロラ：藤・桜・水色の光の帯2枚が、ゆっくり流れる（transform だけ・36秒と48秒で周期がずれる） */
+  html[data-look="aurora"] #aurora { display: none; }
+  html[data-look="aurora"] body { background: transparent; }
+  html[data-look="aurora"] body::before,
+  html[data-look="aurora"] body::after {
+    content: ''; position: fixed; inset: -30%; z-index: -1; pointer-events: none;
+    will-change: transform; transform-origin: 50% 50%;
+  }
+  html[data-look="aurora"] body::before {
+    background:
+      radial-gradient(38% 34% at 22% 30%, rgba(var(--accent-rgb), 0.42), rgba(var(--accent-rgb), 0) 70%),
+      radial-gradient(34% 30% at 78% 24%, rgba(var(--accent-2-rgb), 0.30), rgba(var(--accent-2-rgb), 0) 70%),
+      radial-gradient(40% 36% at 64% 78%, rgba(var(--accent-3-rgb), 0.22), rgba(var(--accent-3-rgb), 0) 70%);
+    animation: auDriftA 36s ease-in-out infinite alternate;
+  }
+  html[data-look="aurora"] body::after {
+    background:
+      radial-gradient(30% 28% at 70% 60%, rgba(var(--accent-2-rgb), 0.20), rgba(var(--accent-2-rgb), 0) 70%),
+      radial-gradient(36% 30% at 30% 74%, rgba(var(--accent-rgb), 0.26), rgba(var(--accent-rgb), 0) 70%),
+      radial-gradient(26% 24% at 50% 40%, rgba(var(--accent-3-rgb), 0.15), rgba(var(--accent-3-rgb), 0) 70%);
+    animation: auDriftB 48s ease-in-out infinite alternate;
+  }
+  @keyframes auDriftA {
+    from { transform: translate3d(-3%, -2%, 0) rotate(-4deg) scale(1.02); }
+    to   { transform: translate3d(3%, 3%, 0) rotate(5deg) scale(1.08); }
+  }
+  @keyframes auDriftB {
+    from { transform: translate3d(3%, 2%, 0) rotate(6deg) scale(1.06); }
+    to   { transform: translate3d(-4%, -3%, 0) rotate(-5deg) scale(1); }
+  }
+  html[data-look="aurora"] #particles { opacity: 0.9; }
+
+  /* ヘッダー：すりガラス。下端に藤→桜→水色の光の線が1本、右から左へ流れる（高さは1pxも増やさない） */
+  html[data-look="aurora"] header {
+    backdrop-filter: blur(18px) saturate(170%); -webkit-backdrop-filter: blur(18px) saturate(170%);
+    border-bottom-color: transparent;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  html[data-look="aurora"] header::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none; opacity: 0.8;
+    background: linear-gradient(90deg, transparent 0%, rgba(var(--accent-rgb), 0.9) 30%,
+                                rgba(var(--accent-2-rgb), 0.9) 50%, rgba(var(--accent-3-rgb), 0.9) 70%, transparent 100%);
+    background-size: 200% 100%;
+    animation: auScan 7s linear infinite;
+  }
+  @keyframes auScan { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  /* プロジェクト名（実務 など）：藤→桜→水色のホログラムが字の中をゆっくり流れる */
+  html[data-look="aurora"] .header-title {
+    letter-spacing: 0.14em;
+    background: linear-gradient(100deg, var(--accent) 0%, var(--accent-2) 35%, var(--accent-3) 65%, var(--accent) 100%);
+    background-size: 300% 100%;
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 14px rgba(var(--accent-rgb), 0.55));
+    animation: auHolo 8s ease-in-out infinite alternate;
+  }
+  @keyframes auHolo { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+  /* ヘッダーの印：藤→桜→水色の光の輪がゆっくり回る（元のアプリの返事のアイコンの輪と同じ書き方） */
+  html[data-look="aurora"] .header-icon {
+    width: 28px; height: 28px; align-items: center; justify-content: center;
+    border-radius: 50%; border: 1.5px solid transparent;
+    background:
+      radial-gradient(circle at 35% 35%, rgba(var(--accent-rgb), 0.40), rgba(40, 28, 70, 0.95)) padding-box,
+      conic-gradient(from var(--au-ring), var(--accent), var(--accent-2), var(--accent-3), var(--accent)) border-box;
+    box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.40), 0 0 5px rgba(var(--accent-2-rgb), 0.35);
+    color: #fff;
+    animation: auRing 8s linear infinite;
+  }
+  html[data-look="aurora"] .header-icon svg { width: 14px; height: 14px; }
+  @keyframes auRing { to { --au-ring: 360deg; } }
+  /* モデル名：枠と面を外して、等幅の大文字の「読み出し」。前に小さな光の点がゆっくり明滅
+     ★ellipsis（長い名前の末尾の「…」）を残すため、display は変えない。点は ::before の inline-block */
+  html[data-look="aurora"] .header-brand { align-items: center; }
+  html[data-look="aurora"] header:not(.tray-open) .header-model {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    letter-spacing: 0.10em; text-transform: uppercase;
+    color: #b6aad6;                                    /* 不透明の落ち着いた藤（手引き1-2） */
+    background: none; border: none; box-shadow: none; padding: 0;
+    align-self: center; margin-top: 0; margin-right: 8px; line-height: 1.2;
+  }
+  html[data-look="aurora"] header:not(.tray-open) .header-model::before {
+    content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    margin-right: 8px; vertical-align: 1px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.9), 0 0 2px rgba(var(--accent-2-rgb), 0.9);
+    animation: auPulse 2.4s ease-in-out infinite;
+  }
+  @keyframes auPulse { 0%, 100% { opacity: 0.55; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.1); } }
+  /* ▶ を開いている間は、モデル名を引っ込めてボタン4つの場所を空ける＝プロジェクト名は動かない（手引き1-4） */
+  html[data-look="aurora"] header.tray-open .header-model { display: none; }
+  /* 触った跡：iPhone は押したあとも :hover が残るので、マウスの無い端末では消す（押している間の :active は残す） */
+  @media (hover: none) { html[data-look="aurora"] .header-btn:hover:not(:active) { background: transparent; } }
+  @media (hover: hover) { html[data-look="aurora"] .header-btn:hover { background: var(--glass); } }
+  html[data-look="aurora"] .header-toggle { color: var(--accent); filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.6)); }
+
+  /* 考えていたこと：見出しの ✦ は桜色に光り、開いている間はまたたく。中身の左の線は藤→桜→水色 */
+  html[data-look="aurora"] .think > summary { color: var(--accent); letter-spacing: 0.08em; }
+  html[data-look="aurora"] .think > summary svg { color: var(--accent-2); filter: drop-shadow(0 0 6px rgba(var(--accent-2-rgb), 0.8)); }
+  html[data-look="aurora"] .think[open] > summary svg { animation: auTwinkle 1.8s ease-in-out infinite; }
+  @keyframes auTwinkle {
+    0%, 100% { opacity: 0.7; transform: scale(0.92) rotate(0deg); }
+    50%      { opacity: 1;   transform: scale(1.1) rotate(15deg); }
+  }
+  html[data-look="aurora"] .think-body {
+    color: #d6ccef; border-left: 2px solid transparent;
+    border-image: linear-gradient(180deg, var(--accent), var(--accent-2), rgba(var(--accent-3-rgb), 0.35)) 1;
+  }
+  html[data-look="aurora"] .msg.ai > .msg-name { color: var(--accent); text-shadow: 0 0 10px rgba(var(--accent-rgb), 0.5); }
+
+  /* 持ち主の吹き出し：すりガラスの面＋藤→桜→水色の細い線の枠（mask で1pxだけ残す） */
+  html[data-look="aurora"] .msg.user .bubble {
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.17), rgba(var(--accent-2-rgb), 0.09) 60%, rgba(var(--accent-3-rgb), 0.07));
+    box-shadow: var(--glass-hi), 0 6px 22px rgba(0, 0, 0, 0.28);
+  }
+  html[data-look="aurora"] .msg.user .bubble::before {
+    content: ''; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none;
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.75), rgba(var(--accent-2-rgb), 0.55) 55%, rgba(var(--accent-3-rgb), 0.45));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+  html[data-look="aurora"] .memo-note { background: var(--glass); border-color: var(--glass-line); box-shadow: var(--glass-hi); }
+  html[data-look="aurora"] .msg-action-btn:hover  { background: rgba(var(--accent-rgb), 0.18); }
+  html[data-look="aurora"] .msg-action-btn:active { background: rgba(var(--accent-rgb), 0.32); }
+
+  /* 入力：すりガラスの丸い箱に、写真・文字・送信をまとめる。書いている間は藤色の光の輪 */
+  html[data-look="aurora"] #composer {
+    background: linear-gradient(180deg, rgba(var(--bg-rgb), 0.30), rgba(var(--bg-rgb), 0.82));
+    backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%);
+    border-top-color: transparent;
+  }
+  html[data-look="aurora"] .composer-inner {
+    background: var(--glass); border-color: var(--glass-line); border-radius: 28px;
+    box-shadow: var(--glass-hi), 0 10px 32px rgba(0, 0, 0, 0.35);
+    transition: border-color 0.25s, box-shadow 0.25s;
+  }
+  html[data-look="aurora"] .composer-inner:focus-within {
+    border-color: rgba(var(--accent-rgb), 0.65);
+    box-shadow: var(--glass-hi), 0 0 0 3px rgba(var(--accent-rgb), 0.14), 0 0 28px rgba(var(--accent-rgb), 0.28), 0 10px 32px rgba(0, 0, 0, 0.35);
+  }
+  html[data-look="aurora"] #photo-btn { border-color: var(--glass-line); background: var(--glass); box-shadow: var(--glass-hi); }
+  html[data-look="aurora"] #photo-btn.has-photos { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.22); }
+  html[data-look="aurora"] #btn-send {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 60%, var(--accent-3) 130%);
+    color: #120d20;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 20px rgba(var(--accent-rgb), 0.50), 0 4px 14px rgba(0, 0, 0, 0.3);
+  }
+  /* ■（止める）のときは、藤色の光を消して白の薄い面に戻す */
+  html[data-look="aurora"] #btn-send.stopping {
+    background: rgba(255, 255, 255, 0.16); color: var(--text);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+  html[data-look="aurora"] #chat::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--accent), var(--accent-2)); }
+  html[data-look="aurora"] #btn-to-bottom {
+    background: rgba(var(--bg-rgb), 0.6); border-color: rgba(var(--accent-rgb), 0.5);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    box-shadow: var(--glass-hi), 0 0 16px rgba(var(--accent-rgb), 0.3), var(--shadow);
+  }
+
+  /* パネル・シート・行き先メニュー：本物のすりガラス（後ろのオーロラが透ける） */
+  html[data-look="aurora"] #threads-panel,
+  html[data-look="aurora"] #memory-panel,
+  html[data-look="aurora"] #techo-panel,
+  html[data-look="aurora"] #photos-panel,
+  html[data-look="aurora"] #settings-sheet,
+  html[data-look="aurora"] #go-menu {
+    backdrop-filter: blur(28px) saturate(170%); -webkit-backdrop-filter: blur(28px) saturate(170%);
+    box-shadow: var(--glass-hi), var(--shadow);
+  }
+  html[data-look="aurora"] #settings-sheet { border-top: 1px solid var(--glass-line); }
+  html[data-look="aurora"] #go-menu { border-color: var(--glass-line); }
+  html[data-look="aurora"] .go-item:hover, html[data-look="aurora"] .go-item:active { background: var(--glass); }
+  html[data-look="aurora"] .thread-item.on { background: rgba(var(--accent-rgb), 0.14); border-color: rgba(var(--accent-rgb), 0.35); box-shadow: var(--glass-hi); }
+  html[data-look="aurora"] .thread-new { background: var(--glass); border-color: var(--glass-line); }
+  html[data-look="aurora"] .memo-item { background: var(--glass); border-color: var(--glass-line); box-shadow: var(--glass-hi); }
+  html[data-look="aurora"] .filter-chip,
+  html[data-look="aurora"] .proj-btn { background: var(--glass); border-color: var(--glass-line); }
+  html[data-look="aurora"] .filter-chip.active,
+  html[data-look="aurora"] .proj-btn.on,
+  html[data-look="aurora"] .sheet-btn.primary {
+    color: #120d20;
+    background: linear-gradient(120deg, var(--accent), var(--accent-2) 70%, var(--accent-3) 140%);
+    box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.35);
+  }
+
+  /* 設定シートの中：欄はガラス、選ばれているものは藤→桜の光。「いろ」の行は押しても変わらないので隠す */
+  html[data-look="aurora"] #theme-group-label,
+  html[data-look="aurora"] #theme-row { display: none; }
+  html[data-look="aurora"] .model-select,
+  html[data-look="aurora"] .sheet-textarea,
+  html[data-look="aurora"] .sheet-btn { background: var(--glass); border-color: var(--glass-line); }
+  html[data-look="aurora"] .look-switch { background: var(--glass); border-color: var(--glass-line); }
+  html[data-look="aurora"] .look-btn.on {
+    color: #fff;
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.40), rgba(var(--accent-2-rgb), 0.28));
+    box-shadow: var(--glass-hi), 0 0 14px rgba(var(--accent-rgb), 0.25);
+  }
+  html[data-look="aurora"] .switch label::before { background: rgba(255, 255, 255, 0.10); border-color: var(--glass-line); }
+  html[data-look="aurora"] .switch input:checked + label::before { box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.45); }
+  html[data-look="aurora"] .setting-group-label { text-shadow: 0 0 10px rgba(var(--accent-rgb), 0.45); }
+
+  /* 「動きを減らす」設定の端末では、オーロラの動きを止める（iOS の設定を尊重する） */
+  @media (prefers-reduced-motion: reduce) {
+    html[data-look="aurora"] body::before, html[data-look="aurora"] body::after,
+    html[data-look="aurora"] header::after, html[data-look="aurora"] .header-title,
+    html[data-look="aurora"] .header-icon, html[data-look="aurora"] .header-model::before,
+    html[data-look="aurora"] .think[open] > summary svg { animation: none; }
+  }
+</style>
+<!-- 人前用の見た目（2026-09-15）。本文を描く前に読む＝開いた瞬間にいつもの画面が一瞬出ない。
+     切り替えの本体は、設定シートの「見た目」の行（下の script の applyLook）。 -->
+<script>try{var L=localStorage.getItem('kiwami_look'),C={plain:'#262624',aurora:'#06050e'};if(C[L]){document.documentElement.setAttribute('data-look',L);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',C[L]);}}catch(e){}</script>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-assist" viewBox="0 0 24 24"><path d="M12 2.6 21.4 9.4 17.8 20.5H6.2L2.6 9.4Z"/></symbol>
+  <!-- 設定＝「横線にポチポチ」（i-sliders）。歯車は使わない -->
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol>
+  <!-- スレッド＝会話の束。吹き出しの重なりで表す -->
+  <symbol id="i-threads" viewBox="0 0 24 24"><path d="M16.5 13.5a1.7 1.7 0 0 1-1.7 1.7H9.2L5.8 18.4v-3.2h-.6a1.7 1.7 0 0 1-1.7-1.7V6.9a1.7 1.7 0 0 1 1.7-1.7h9.6a1.7 1.7 0 0 1 1.7 1.7z"/><path d="M19.1 8.9a1.7 1.7 0 0 1 1.4 1.68v6.6a1.7 1.7 0 0 1-1.7 1.7h-.6v3.2l-2.6-2.3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14.3A8.6 8.6 0 1 1 9.7 3.5a6.7 6.7 0 0 0 10.8 10.8z"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4.5l2 2.5H19a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 18.5H5A1.5 1.5 0 0 1 3.5 17z"/></symbol>
+  <symbol id="i-folder-out" viewBox="0 0 24 24"><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4.5l2 2.5H19a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 18.5H5A1.5 1.5 0 0 1 3.5 17z"/><path d="M4 20 20 4" stroke-width="1.9"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4.5" rx="1"/><path d="M4.5 8.5V19a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1V8.5"/><path d="M10 12h4"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 6.5h16M9.5 6.5V4.6a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.9"/><path d="M6.5 6.5 7.4 20a1 1 0 0 0 1 .9h7.2a1 1 0 0 0 1-.9l.9-13.5"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6.5" y="3.5" width="9" height="17" rx="2.3"/><path d="M10.6 18h2.8"/></symbol>
+  <!-- カート（Amazon見守りの行の目印。2026-09-23） -->
+  <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3.5 4.5h2.2l2.1 10.2h9.4l1.9-7.2H6.6"/><circle cx="9.5" cy="18.8" r="1.3"/><circle cx="16.2" cy="18.8" r="1.3"/></symbol>
+  <!-- 円マーク（計算ツールの行の目印。2026-09-28） -->
+  <symbol id="i-yen" viewBox="0 0 24 24"><path d="M6.5 4l5.5 8 5.5-8"/><path d="M12 12v8.5"/><path d="M7.5 12.5h9M7.5 16h9"/></symbol>
+  <!-- 馬蹄（ゲーム用ツールの行の目印。2026-09-06） -->
+  <symbol id="i-horse" viewBox="0 0 24 24"><path d="M7.5 20V11.5a4.5 4.5 0 0 1 9 0V20"/><path d="M5.8 20h3.4M14.8 20h3.4"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"/><path d="M19 15v4M21 17h-4M5 4v3M6.5 5.5h-3"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20.5 11a8.5 8.5 0 1 0-.9 5"/><path d="M20.5 5.5V11h-5.5"/></symbol>
+  <symbol id="i-ball" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h5.1M15.5 12h5.1"/><circle cx="12" cy="12" r="2.6"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H18a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5.5A1.5 1.5 0 0 0 4 20.5z"/><path d="M4 17.5A1.5 1.5 0 0 1 5.5 16H19"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <!-- クリップ（写真・ファイルを添える。2026-10-01） -->
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="M21 11.3l-8.6 8.6a5.6 5.6 0 0 1-7.9-7.9l8.6-8.6a3.7 3.7 0 0 1 5.3 5.3l-8.6 8.6a1.9 1.9 0 0 1-2.6-2.6l7.9-7.9"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2.2l1.2-2h6.8l1.2 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.6"/></symbol>
+</svg>
+
+<div id="aurora"><span class="a1"></span><span class="a2"></span><span class="a3"></span></div>
+<canvas id="particles"></canvas>
+
+<div id="app">
+  <header>
+    <div class="header-brand">
+      <span class="header-title">
+        <span class="header-icon"><svg><use href="#i-assist"/></svg></span><span id="header-name">アシスタント</span>
+      </span>
+      <span class="header-model" id="header-model">SDK1 · Opus 5</span>
+      <!-- 人前用の見た目だけで出る2段（2026-09-15）：上＝モデル名／下＝アカウント。いつもの画面では出ない -->
+      <span class="header-plain-model" id="header-plain-model"></span>
+      <span class="header-plain-route" id="header-plain-route"></span>
+    </div>
+    <!-- 2026-09-20。
+         4つは ▶ を押すと出る（はじめは collapsed＝しまってある） -->
+    <div class="header-actions collapsed">
+      <!-- 行き来：別のアプリ ⇄ クロード極 ⇄ 別のアプリ。アイコンは1つで、押すと行き先が出る -->
+      <button class="header-btn" id="btn-go" aria-label="ほかの部屋へ" title="ほかの部屋へ"><svg><use href="#i-phone"/></svg></button>
+      <button class="header-btn" id="btn-threads" aria-label="スレッド" title="スレッド"><svg><use href="#i-threads"/></svg></button>
+      <button class="header-btn" id="btn-techo" aria-label="手帳" title="手帳"><svg><use href="#i-book"/></svg></button>
+      <button class="header-btn" id="btn-settings" aria-label="設定" title="設定"><svg><use href="#i-sliders"/></svg></button>
+      <button type="button" class="header-btn header-toggle" id="btn-header-toggle" aria-expanded="false" aria-label="ボタンを出す" title="ボタンを出す">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M9 7.1v9.8a.9.9 0 0 0 1.4.75l7.3-4.9a.9.9 0 0 0 0-1.5l-7.3-4.9A.9.9 0 0 0 9 7.1Z"/>
+        </svg>
+      </button>
+    </div>
+
+  </header>
+
+  <div id="chat">
+    <!-- ここから下は「見た目を見ていただくための仮の会話」。中身は繋がっていません -->
+    <div class="msg user">
+      <div class="bubble">転入届を出すとき、どの書類がいるんだっけ</div>
+    </div>
+    <div class="msg ai">
+      <div class="msg-name">アシスタント</div>
+      <div class="bubble">本人確認書類と、前の住所の転出証明書です。前の市区町村の窓口で転出届を出すともらえる書類になります。
+
+転出証明書が無い場合は、マイナンバーカードがあれば特例転入の形で手続きできます。窓口が個別に確認します。<div class="msg-actions"><button class="msg-action-btn" title="もう一度" aria-label="もう一度"><svg><use href="#i-refresh"/></svg></button></div></div>
+    </div>
+    <div class="memo-note"><svg><use href="#i-book"/></svg>覚えました：引っ越しの手続きの途中。転入届はこれから</div>
+    <div class="msg user">
+      <div class="bubble">ありがとう。今日ちょっと忙しいから、短めでいいよ<div class="msg-actions"><button class="msg-action-btn" title="書き直して送る" aria-label="書き直して送る"><svg><use href="#i-pencil"/></svg></button></div></div>
+    </div>
+    <div class="msg ai">
+      <div class="msg-name">アシスタント</div>
+      <div class="bubble">わかりました。短くします。</div>
+    </div>
+  </div>
+
+  <!-- いちばん下へ（↓）。いちばん下から離れているあいだだけ、入力欄のすぐ上の真ん中に浮く（2026-09-29） -->
+  <button id="btn-to-bottom" type="button" aria-label="いちばん下へ" title="いちばん下へ"><svg><use href="#i-arrow-down"/></svg></button>
+
+  <div id="composer">
+    <!-- 送る前に選んだ写真がここに並ぶ（タップで外せる） -->
+    <div id="photo-tray"></div>
+    <div class="composer-inner">
+      <!-- capture は付けない：付けるとカメラ直行になり、アルバムから選べなくなる
+           PDF・文字のファイルも受ける（2026-10-01）。iPhone では「写真ライブラリ／写真を撮る／ファイルを選択」が出る
+           ★accept は付けない。付けると iPhone のファイル画面で PDF が灰色になって選べなかった（2026-10-01 実機）。
+             何でも選べるようにして、読めない種類は選んだあとに札で知らせる（fileKind） -->
+      <input type="file" id="photo-file-input" multiple style="display:none" />
+      <button id="photo-btn" aria-label="写真・ファイルを送る" title="写真・ファイルを送る"><svg><use href="#i-clip"/></svg></button>
+      <textarea id="input" rows="1" placeholder="なんでもどうぞ"></textarea>
+      <button id="btn-send" aria-label="送信"><svg><use href="#i-send"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<!-- 送った写真を大きく見る覆い。★#app の外に置く（中に入れると幅が縛られる） -->
+<div id="photo-viewer" aria-hidden="true">
+  <img id="photo-viewer-img" alt="送った写真" />
+  <button id="photo-viewer-close" type="button" aria-label="写真を閉じる"><svg><use href="#i-x"/></svg></button>
+</div>
+
+<!-- 行き先メニュー（別のアプリ ⇄ クロード極 ⇄ 別のアプリ）。
+     ヘッダーの中に置くと、ヘッダーのぼかしの中に入ってしまい吹き出しの裏へ潜るので、
+     #app の外に出して画面に直接固定している。 -->
+<div id="go-menu">
+  <a class="go-item" href="/reminders">
+    <span class="go-icon"><svg><use href="#i-sparkles"/></svg></span>
+    <span class="go-text"><b>リマインダー</b><em>クロード極が登録した用事</em></span>
+    <span class="go-arrow"><svg><use href="#i-chevron"/></svg></span>
+  </a>
+  <!-- 図鑑と別画面（2026-09-06）。
+       どちらもこのサーバー（8030）の中から配るので、相対パスで開く＝
+       ホーム画面アプリのまま、Safari へ飛び出さない。
+       ★末尾の「/」は要る（付けないと、中の絵や呼び先が1つ上を向いてしまう）。
+       ★入っていないパソコンでは、下の JS が行ごと隠す。 -->
+  <a class="go-item" id="go-zukan" href="/zukan/" style="display:none">
+    <span class="go-icon"><svg><use href="#i-ball"/></svg></span>
+    <span class="go-text"><b>図鑑</b><em>置いたときだけ出ます</em></span>
+    <span class="go-arrow"><svg><use href="#i-chevron"/></svg></span>
+  </a>
+  <a class="go-item" id="go-winpost" href="/winpost/" style="display:none">
+    <span class="go-icon"><svg><use href="#i-horse"/></svg></span>
+    <span class="go-text"><b>別画面</b><em>置いたときだけ出ます</em></span>
+    <span class="go-arrow"><svg><use href="#i-chevron"/></svg></span>
+  </a>
+  <!-- 老後シミュレーター（2026-09-28）。このサーバーの中から配るので、相対パスで開く＝ホーム画面アプリのまま、Safari へ飛び出さない。
+       ★/rooms が rougo を返したときだけ下の JS が出す。 -->
+  <a class="go-item" id="go-rougo" href="/rougo" style="display:none">
+    <span class="go-icon"><svg><use href="#i-yen"/></svg></span>
+    <span class="go-text"><b>老後シミュレーター</b><em>何歳まで持つか</em></span>
+    <span class="go-arrow"><svg><use href="#i-chevron"/></svg></span>
+  </a>
+</div>
+
+<div id="settings-overlay"></div>
+
+<div id="threads-panel">
+  <div class="panel-head">
+    <span class="panel-title">スレッド</span>
+    <button class="header-btn" id="btn-close-threads" aria-label="閉じる">✕</button>
+  </div>
+  <button class="thread-new" id="btn-new-thread"><svg><use href="#i-plus"/></svg>新しいスレッド</button>
+
+  <div class="search-box">
+    <svg><use href="#i-search"/></svg>
+    <input type="search" id="thread-search" placeholder="ことばで探す…" autocomplete="off">
+  </div>
+
+  <!-- 印で絞る。「すべて」以外は重ねて押せる（AND） -->
+  <div class="filter-chips" id="filter-chips">
+    <button class="filter-chip active" data-filter="all">すべて</button>
+    <button class="filter-chip" data-filter="heart" title="♡のスレ">♡</button>
+    <button class="filter-chip" data-filter="star" title="★のスレ">★</button>
+    <button class="filter-chip" data-filter="folder">フォルダ分け</button>
+    <button class="filter-chip" data-filter="archived">奥</button>
+  </div>
+  <!-- モデルで絞る。実際に使ったモデルぶんだけ自動で出る -->
+  <div class="filter-chips model-chips" id="model-chips"></div>
+
+  <div class="thread-list" id="thread-list"></div>
+</div>
+
+<div id="memory-panel">
+  <div class="panel-head">
+    <span class="panel-title">おぼえていること</span>
+    <button class="header-btn" id="btn-close-memory" aria-label="閉じる">✕</button>
+  </div>
+  <!-- どちらの袋を見るか（2026-09-02）。
+       このプロジェクト … いままでどおり、その相手だけの袋
+       みんな共通       … 全プロジェクトが読めて、全プロジェクトが書き足せる袋 -->
+  <div class="filter-chips" id="memory-bags">
+    <button class="filter-chip active" data-bag="own">このプロジェクト</button>
+    <button class="filter-chip" data-bag="shared">みんな共通</button>
+  </div>
+  <button class="thread-new" id="btn-add-memory"><svg><use href="#i-plus"/></svg>じぶんで足す</button>
+  <div class="thread-list" id="memory-list"></div>
+</div>
+
+<!-- 手帳（話したことを、話題ごとの粒にして勝手に覚えていく）。上のアイコンから開く
+     自分の画面にした（2026-09-02）。おぼえていることの下にぶら下げると窮屈で、
+     探す・直す・消すが並べられない。作りはスレッド画面と同じ（検索窓＋一覧）。
+     2026-09-03：会話そのままは入れない＝「まとめ／話したこと」の絞りは無くした。 -->
+<div id="techo-panel">
+  <div class="panel-head">
+    <span class="panel-title">手帳<span id="techo-panel-count"></span></span>
+    <button class="header-btn" id="btn-close-techo" aria-label="閉じる">✕</button>
+  </div>
+
+  <div class="search-box">
+    <svg><use href="#i-search"/></svg>
+    <input type="search" id="techo-search" placeholder="ことばで探す…" autocomplete="off">
+  </div>
+
+  <div class="thread-list" id="techo-list"></div>
+</div>
+
+<div id="photos-panel">
+  <div class="panel-head">
+    <span class="panel-title">送った写真<span id="photos-panel-count"></span></span>
+    <button class="header-btn" id="btn-close-photos" aria-label="閉じる">✕</button>
+  </div>
+  <div class="thread-list" id="photos-list"></div>
+</div>
+
+<div id="settings-sheet">
+  <div class="sheet-handle"><span></span></div>
+  <div class="sheet-head">
+    <span class="sheet-title">設定</span>
+    <button class="header-btn" id="btn-close-settings" aria-label="閉じる">✕</button>
+  </div>
+  <div class="sheet-body">
+
+    <!-- 見た目：いつもの／人前用（2026-09-15）。押した瞬間に変わり、この端末が覚える。
+         人前用＝クロード公式に寄せた、濃いグレーの落ち着いた画面（名前と印は出さない）。 -->
+    <div class="setting-row" id="look-row">
+      <span class="setting-label">見た目</span>
+      <div class="look-switch" role="group" aria-label="見た目">
+        <button type="button" class="look-btn on" data-for="usual" aria-pressed="true">いつもの</button>
+        <button type="button" class="look-btn" data-for="plain" aria-pressed="false">人前用</button>
+        <button type="button" class="look-btn" data-for="aurora" aria-pressed="false">オーロラ</button>
+      </div>
+    </div>
+
+    <div class="setting-group-label">だれと話すか</div>
+    <div class="setting-row">
+      <span class="setting-label">プロジェクト</span>
+      <select class="model-select" id="persona-select"></select>
+    </div>
+    <div class="setting-note" id="persona-note"></div>
+    <div class="proj-actions">
+      <button class="proj-btn" id="btn-proj-memory">おぼえる</button>
+      <button class="proj-btn" id="btn-proj-new">＋ 新しく作る</button>
+      <button class="proj-btn" id="btn-proj-rename">名前を変える</button>
+      <button class="proj-btn" id="btn-proj-del">消す</button>
+    </div>
+
+    <div class="setting-group-label">どの枠を使うか</div>
+    <div class="setting-row">
+      <span class="setting-label">アカウント</span>
+      <select class="model-select" id="account-select">
+        <option value="sdk1">SDK1</option>
+        <option value="sdk2">SDK2</option>
+      </select>
+    </div>
+    <div class="setting-note">
+      5時間の枠が別々です。<strong>切り替えても中身と記憶はそのまま</strong>。
+    </div>
+
+    <div class="setting-row">
+      <span class="setting-label">モデル</span>
+      <select class="model-select" id="model-select"></select>
+    </div>
+    <div class="setting-row" id="effort-row">
+      <span class="setting-label">思考の深さ</span>
+      <select class="model-select" id="effort-select"></select>
+    </div>
+
+    <div class="setting-group-label">道具</div>
+    <div class="setting-row">
+      <span class="setting-label">ウェブ検索</span>
+      <div class="switch">
+        <input type="checkbox" id="search-toggle"><label for="search-toggle"></label>
+      </div>
+    </div>
+    <div class="setting-note" id="search-note">
+      オフのあいだは<strong>1トークンも積みません</strong>。制度や手続きを調べるときと、
+      <strong>URLを貼って中身を読ませたいとき</strong>にオン。
+      <strong>PDF・ワード・エクセルも中身まで読めます</strong>（役所のしおりなど）。
+    </div>
+
+    <div class="setting-row" style="display:none">
+      <span class="setting-label">（公開版には無い道具）</span>
+      <div class="switch">
+        <input type="checkbox" id="winpost-toggle"><label for="winpost-toggle"></label>
+      </div>
+    </div>
+    <div class="setting-note" id="winpost-note" style="display:none"></div>
+
+    <div class="setting-row" id="pokedex-row" style="display:none">
+      <span class="setting-label">（公開版には無い道具）</span>
+      <div class="switch">
+        <input type="checkbox" id="pokedex-toggle"><label for="pokedex-toggle"></label>
+      </div>
+    </div>
+    <div class="setting-note" id="pokedex-note" style="display:none"></div>
+
+    <div class="setting-row">
+      <span class="setting-label">Amazonの道具</span>
+      <div class="switch">
+        <input type="checkbox" id="amazon-toggle"><label for="amazon-toggle"></label>
+      </div>
+    </div>
+    <div class="setting-note" id="amazon-note">
+      <strong>イメージのわかない品物を、カゴに入れてお見せします。</strong>
+      オフのあいだは<strong>1トークンも積みません</strong>。
+      できるのは「探す・商品を見る・口コミを読む・カゴに入れる」の4つだけで、
+      <strong>買うことはできません</strong>（お会計は持ち主がAmazonのアプリで）。
+      探すときだけ、別の経路を通るので枠を使います。
+    </div>
+
+    <!-- 老後シミュレーターの道具（2026-09-29） -->
+    <div class="setting-row">
+      <span class="setting-label">老後シミュレーター</span>
+      <div class="switch">
+        <input type="checkbox" id="rougo-toggle"><label for="rougo-toggle"></label>
+      </div>
+    </div>
+    <div class="setting-note" id="rougo-note">
+      <strong>何歳まで持つか・暮らしは月いくらまで・あといくら</strong>を、スマホマークの老後シミュレーターと<strong>同じ計算</strong>で出します。
+      オフのあいだは<strong>1トークンも積みません</strong>。計算だけなので0円です。
+      画面に入れた数字は iPhone の中にあって読めないので、お話や記憶から数字を入れて計算します。
+    </div>
+
+    <!-- 投資信託ランキングの道具（2026-10-01） -->
+    <div class="setting-row">
+      <span class="setting-label">投資信託ランキング</span>
+      <div class="switch">
+        <input type="checkbox" id="toushin-toggle"><label for="toushin-toggle"></label>
+      </div>
+    </div>
+    <div class="setting-note" id="toushin-note">
+      <strong>♡のファンドの様子・ファンドの探し方・荒さの読み方・今月の順位の動き</strong>を、投資信託ランキングの数字を読んで答えます。
+      オフのあいだは<strong>1トークンも積みません</strong>。同じパソコンの投資信託ランキング（8050）に聞くだけなので0円です。
+      <strong>買う・売るの助言はしません</strong>（過去の数字を読み上げるだけです）。
+    </div>
+
+    <!-- 公開版には入っていない道具のつまみ（画面の動きが読みに来るので、見えない形で置いてある） -->
+    <div class="setting-row" id="guard-row" style="display:none">
+      <span class="setting-label">見張り</span>
+      <div class="switch">
+        <input type="checkbox" id="guard-toggle"><label for="guard-toggle"></label>
+      </div>
+    </div>
+    <div class="setting-note" id="guard-note" style="display:none"></div>
+
+    <div class="setting-group-label">アシスタントから話しかける</div>
+    <div class="setting-row">
+      <span class="setting-label">声かけ</span>
+      <div class="switch">
+        <input type="checkbox" id="proactive-toggle"><label for="proactive-toggle"></label>
+      </div>
+    </div>
+    <div class="setting-row" id="proactive-time-row">
+      <span class="setting-label">時こく</span>
+      <select class="model-select" id="proactive-hour"></select>
+      <select class="model-select" id="proactive-minute"></select>
+    </div>
+    <div class="setting-actions">
+      <button class="sheet-btn" id="btn-test-proactive">いま1回ためす</button>
+    </div>
+    <div class="setting-note" id="proactive-note">
+      決めた時こくに1回だけ話しかけます。<strong>5時間の枠がここから始まります</strong>。
+    </div>
+
+    <div class="setting-group-label" id="theme-group-label">見た目</div>
+    <div class="setting-row" id="theme-row">
+      <span class="setting-label">いろ</span>
+      <div class="theme-picker">
+        <button class="theme-dot on" data-for="iris"   aria-label="夜明け前の藤"><i></i></button>
+        <button class="theme-dot"    data-for="water"  aria-label="深い水の底"><i></i></button>
+        <button class="theme-dot"    data-for="claude" aria-label="箔押しの古書"><i></i></button>
+      </div>
+    </div>
+
+    <div class="setting-group-label">おぼえていること</div>
+    <button class="thread-new" id="btn-memory" style="margin:0">
+      <svg><use href="#i-book"/></svg>メモリを見る・直す・消す
+    </button>
+    <div class="setting-note" id="memory-count">
+      実務（1）のときだけ使います。
+    </div>
+
+    <div class="setting-group-label">送った写真</div>
+    <button class="thread-new" id="btn-photos" style="margin:0">
+      <svg><use href="#i-camera"/></svg>送った写真を見る
+    </button>
+    <div class="setting-note" id="photos-note">
+      アシスタントに送った写真が、日づけごとに残ります。
+    </div>
+
+    <div class="setting-group-label">シスプロ</div>
+    <textarea class="sheet-textarea" id="sysprompt-user"
+      placeholder="ここに書いたものが、表に出ないシスプロのうしろに足されます（空のままでも動きます）"></textarea>
+    <div class="setting-actions">
+      <button class="sheet-btn primary" id="btn-save-sys">保存する</button>
+    </div>
+    <div class="setting-note">
+      表に出ないシスプロ（うろ覚えで書かない・前置きを書かない・決めつけない…）は<strong>中で効いています</strong>。ここは、その上に足す分です。
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   ここは「見た目を見ていただくための仮の動き」。
+   サーバーとは、まだ繋がっていません（フェーズ2＝ガワ）。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── ふわふわ（別のアプリから流用。色だけテーマ変数に連動させた） ── */
+(function () {
+  const canvas = document.getElementById('particles');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles;
+  const resize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
+  const make = () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    r: Math.random() * 1.4 + 0.3,
+    vx: (Math.random() - .5) * .18, vy: -(Math.random() * .25 + .05),
+    alpha: Math.random() * .5 + .1, da: (Math.random() - .5) * .003
+  });
+  const init = () => { resize(); particles = Array.from({ length: Math.floor(W * H / 12000) }, make); };
+  const draw = () => {
+    // 人前用の見た目では粒を出さない（#particles は CSS で隠してある）。描かずに待つだけ
+    if (document.documentElement.getAttribute('data-look') === 'plain') { requestAnimationFrame(draw); return; }
+    const rgb = getComputedStyle(document.documentElement).getPropertyValue('--particle').trim();
+    ctx.clearRect(0, 0, W, H);
+    for (const p of particles) {
+      p.x += p.vx; p.y += p.vy; p.alpha += p.da;
+      if (p.alpha <= .05) p.da = Math.abs(p.da);
+      if (p.alpha >= .65) p.da = -Math.abs(p.da);
+      if (p.y < -4) { p.y = H + 4; p.x = Math.random() * W; }
+      if (p.x < -4 || p.x > W + 4) { p.x = Math.random() * W; p.y = Math.random() * H; }
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${rgb}, ${p.alpha})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  };
+  init(); draw();
+  window.addEventListener('resize', init);
+})();
+
+/* ── モデル（別のアプリの PROVIDER_MODELS から。極は最新＋Opus の4世代） ──
+   ★ claude/config.py の MODELS と同じ中身にすること（2か所ある） */
+const MODELS = [
+  { value: '',                            label: 'おまかせ（既定）' },
+  { value: 'claude-opus-5-5',             label: 'Opus 5.5' },
+  { value: 'claude-opus-5',               label: 'Opus 5' },
+  { value: 'claude-fable-5-1',            label: 'Fable 5.1' },
+  { value: 'claude-fable-5',              label: 'Fable 5' },
+  { value: 'claude-sonnet-5',             label: 'Sonnet 5' },
+  { value: 'claude-opus-4-8',             label: 'Opus 4.8' },
+  { value: 'claude-opus-4-7',             label: 'Opus 4.7' },
+  { value: 'claude-opus-4-6',             label: 'Opus 4.6' },
+  { value: 'claude-opus-4-5',             label: 'Opus 4.5' },
+  { value: 'claude-haiku-4-5-20251001',   label: 'Haiku 4.5' },
+];
+
+/* ── 思考の深さ（別のアプリの EFFORT_BY_MODEL をそのまま）──
+   2026-09-20 3つしか選べなかったので全部選べるようにした → クロードコードと
+   同じ5段階（Low / Medium / High / Extra High / Max）。★Opus 4.5 だけは触らない（3つのまま）。 */
+const EFFORT_OPTIONS = {
+  off:    'Off',
+  keep:   'いままで通り',
+  low:    'Low',
+  medium: 'Medium',
+  high:   'High',
+  xhigh:  'Extra High',
+  max:    'Max',
+};
+const EFFORT_BY_MODEL = {
+  'claude-fable-5-1': { levels: ['low', 'medium', 'high', 'xhigh', 'max'],                def: 'xhigh' },
+  'claude-fable-5':   { levels: ['low', 'medium', 'high', 'xhigh', 'max'],                def: 'xhigh' },
+  'claude-opus-5-5':  { levels: ['low', 'medium', 'high', 'xhigh', 'max'],                def: 'xhigh' },
+  'claude-opus-5':    { levels: ['low', 'medium', 'high', 'xhigh', 'max'],                def: 'xhigh' },
+  'claude-opus-4-8':  { levels: ['off', 'low', 'medium', 'high', 'xhigh', 'max'],         def: 'xhigh' },
+  'claude-opus-4-7':  { levels: ['off', 'low', 'medium', 'high', 'xhigh', 'max'],         def: 'xhigh' },
+  'claude-opus-4-6':  { levels: ['off', 'keep', 'low', 'medium', 'high', 'xhigh', 'max'], def: 'max'   },
+  'claude-opus-4-5':  { levels: ['off', 'keep', 'max'],                                   def: 'max'   },
+};
+
+const modelSelect   = document.getElementById('model-select');
+const effortSelect  = document.getElementById('effort-select');
+const effortRow     = document.getElementById('effort-row');
+const accountSelect = document.getElementById('account-select');
+const personaSelect = document.getElementById('persona-select');
+const personaNote   = document.getElementById('persona-note');
+const headerName    = document.getElementById('header-name');
+const headerModel   = document.getElementById('header-model');
+// 開いているスレで話しかけた回数＝「◯往復」。updateHeader() が起動の早い段で読むので、
+// ここ（道具をつかまえる場所）に置く。下のほうに置くと画面ぜんぶが止まる（2026-09-01）。
+let curTurns = 0;
+
+for (const m of MODELS) {
+  const o = document.createElement('option');
+  o.value = m.value; o.textContent = m.label;
+  modelSelect.appendChild(o);
+}
+modelSelect.value = 'claude-opus-5';
+
+function updateEffortRow() {
+  const spec = EFFORT_BY_MODEL[modelSelect.value];
+  effortRow.style.display = spec ? '' : 'none';
+  if (!spec) return;
+  effortSelect.innerHTML = '';
+  for (const lv of spec.levels) {
+    const o = document.createElement('option');
+    o.value = lv; o.textContent = EFFORT_OPTIONS[lv];
+    effortSelect.appendChild(o);
+  }
+  effortSelect.value = spec.def;
+}
+
+/* ── プロジェクト（人格ごとの箱・2026-08-02）──
+   サーバーの /projects が正本。繋がらないときは、はじめからある3つで代用する。
+   ★スレッドの persona 項目は、そのままプロジェクト ID。 */
+let PROJECTS = [
+  { id: '1', name: '実務', core: true,  memory: true,  order: 1 },
+  { id: '2', name: 'クロード',   core: false, memory: false, order: 2 },
+  { id: '3', name: '相棒',      core: false, memory: true,  order: 3 },
+];
+let PROJ_LOCKED = ['1', '2', '3'];          // 画面から消せないもの
+
+const projOf   = id => PROJECTS.find(p => String(p.id) === String(id));
+const projName = id => (projOf(id) || {}).name || '（不明）';
+const curProj  = () => personaSelect.value || '1';
+
+function updateHeader() {
+  headerName.textContent = projName(curProj());
+  const acc = accountSelect.options[accountSelect.selectedIndex].text;
+  const mdl = modelSelect.options[modelSelect.selectedIndex].text;
+  headerModel.textContent = `${acc} · ${mdl}` + (curTurns ? ` · ${curTurns}往復` : '');
+  // 人前用の見た目の2段（2026-09-15）。いつもの画面では CSS で隠れている
+  document.getElementById('header-plain-model').textContent = mdl;
+  document.getElementById('header-plain-route').textContent = acc + (curTurns ? ` · ${curTurns}往復` : '');
+}
+
+/* 選んでいるプロジェクトの説明と、手入れボタンの見た目をそろえる */
+function updateProjectRow() {
+  const p = projOf(curProj()) || {};
+  personaNote.innerHTML =
+    `<strong>${projName(curProj())}</strong>＝`
+    + (p.core ? '表に出ないシスプロつき・' : '')
+    + (p.memory ? 'おぼえます' : 'おぼえません')
+    + '。書いたシスプロが効きます。';
+
+  const memBtn = document.getElementById('btn-proj-memory');
+  memBtn.textContent = p.memory ? 'おぼえる' : 'おぼえない';
+  memBtn.classList.toggle('on', !!p.memory);
+
+  document.getElementById('btn-proj-del').disabled = PROJ_LOCKED.includes(String(curProj()));
+}
+
+function fillProjectSelect(keep) {
+  const want = String(keep || personaSelect.value || '1');
+  personaSelect.innerHTML = '';
+  for (const p of PROJECTS) {
+    const o = document.createElement('option');
+    o.value = p.id; o.textContent = p.name;
+    personaSelect.appendChild(o);
+  }
+  personaSelect.value = PROJECTS.some(p => String(p.id) === want)
+    ? want : String((PROJECTS[0] || {}).id || '1');
+  updateProjectRow(); updateHeader(); renderProjectChips();
+}
+
+/* ── みんな共通の袋（プロジェクト貫通メモリ・2026-09-02）──
+   どのプロジェクトからも読めて、どこからでも書き足せる袋。
+   ★プロジェクトの選択欄には入れない＝**会話の相手としては選べない**。
+     これは袋であって、人格ではないため。 */
+let SHARED_BAG  = '_all';
+let SHARED_NAME = 'みんな共通';
+
+async function loadProjects(keep) {
+  const d = await api('/projects');
+  if (d && d.projects && d.projects.length) {
+    PROJECTS = d.projects;
+    if (d.locked) PROJ_LOCKED = d.locked.map(String);
+  }
+  if (d && d.shared && d.shared.id) { SHARED_BAG = d.shared.id; SHARED_NAME = d.shared.name || SHARED_NAME; }
+  fillProjectSelect(keep);
+}
+
+personaSelect.addEventListener('change', () => { updateProjectRow(); updateHeader(); });
+modelSelect.addEventListener('change', () => { updateEffortRow(); updateHeader(); });
+accountSelect.addEventListener('change', updateHeader);
+updateEffortRow(); updateHeader();
+
+/* ── テーマ ── */
+const savedTheme = localStorage.getItem('kiwami_theme') || 'iris';
+document.documentElement.setAttribute('data-theme', savedTheme);
+document.querySelectorAll('.theme-dot').forEach(btn => {
+  btn.classList.toggle('on', btn.dataset.for === savedTheme);
+  btn.addEventListener('click', () => {
+    const t = btn.dataset.for;
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('kiwami_theme', t);
+    document.querySelectorAll('.theme-dot').forEach(b => b.classList.toggle('on', b === btn));
+  });
+});
+
+/* ── 見た目：いつもの／人前用（2026-09-15）──
+   ★見た目は全部 CSS（html[data-look="plain"]）。ここは覚える・切り替えるだけ。
+     押した瞬間に、いま出ている吹き出しも含めて全部かわる（行を作り直さない）。
+   ★開いたときの読み込みは head の終わりで先に済ませてある（一瞬出るのを防ぐため）。
+   ★いつもの のときは、上の「いろ」（藤・水・古書）がそのまま効く。 */
+const LOOK_KEY = 'kiwami_look';
+// 2026-09-24 オーロラを足した（元のアプリの 9/23 のオーロラと同じもの）。名前は head の数行にも書いてある
+const LOOK_THEME_COLOR = { plain: '#262624', aurora: '#06050e' };
+function applyLook(look) {
+  if (!LOOK_THEME_COLOR[look]) look = '';
+  if (look) document.documentElement.setAttribute('data-look', look);
+  else document.documentElement.removeAttribute('data-look');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', LOOK_THEME_COLOR[look] || '#0d0b14');
+  document.querySelectorAll('.look-btn').forEach(b => {
+    const on = (b.dataset.for === 'usual' ? '' : b.dataset.for) === look;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+document.querySelectorAll('.look-btn').forEach(b => b.addEventListener('click', () => {
+  const look = LOOK_THEME_COLOR[b.dataset.for] ? b.dataset.for : '';
+  try { localStorage.setItem(LOOK_KEY, look); } catch (e) { /* 覚えられなくても、いまの画面は変える */ }
+  applyLook(look);
+}));
+let savedLook = '';
+try { savedLook = localStorage.getItem(LOOK_KEY) || ''; } catch (e) {}
+applyLook(savedLook);
+
+/* ── 開け閉め（設定シート・スレッドパネル・行き先メニュー） ──
+   おおいは1枚を使い回す。どれかが開いているときだけ出す。 */
+const overlay = document.getElementById('settings-overlay');
+const sheet   = document.getElementById('settings-sheet');
+const panel   = document.getElementById('threads-panel');
+const goMenu  = document.getElementById('go-menu');
+
+/* ── パネル・シートを「次の描き直し」で出す共通の形（2026-09-20）──
+   ★rAF（次の描き直しの合図）は「画面を描いていないとき」に来ないことがある（低電力モードなど）。
+     来ないと、押しても開かない。そこで短いタイマーの保険も置く。
+   ★保険が遅れて届いても、**その間に閉じられていたら出さない**（通し番号で見分ける）。
+     これが無いと、開いてすぐ閉じたときに、後から勝手に開き直す。 */
+let uiEpoch = 0;
+const openLater = (el) => {
+  const mine = ++uiEpoch;
+  const show = () => { if (uiEpoch === mine) el.classList.add('open'); };
+  requestAnimationFrame(show);
+  setTimeout(show, 60);
+};
+
+const closeAll = () => {
+  uiEpoch++;                  // 遅れて届く「開け」を無効にする
+  sheet.classList.remove('open');
+  panel.classList.remove('open');
+  goMenu.classList.remove('open');
+  document.getElementById('memory-panel').classList.remove('open');
+  document.getElementById('techo-panel').classList.remove('open');
+  document.getElementById('photos-panel').classList.remove('open');
+  setTimeout(() => overlay.classList.remove('open'), 300);
+};
+const openSheet = () => {
+  goMenu.classList.remove('open');
+  overlay.classList.add('open');
+  openLater(sheet);
+};
+const openPanel = () => {
+  goMenu.classList.remove('open');
+  overlay.classList.add('open');
+  openLater(panel);
+};
+
+/* ── ヘッダーのボタンを ▶ でしまう／出す（2026-09-20）──
+   元のアプリの wireHeaderTray と同じ形。開いた直後はいつもしまった形（覚えない）。
+   出している間だけ header に tray-open が付く＝モデル名の囲いが外れて、横幅をボタンに譲る。 */
+(function wireHeaderTray() {
+  const actions = document.querySelector('.header-actions');
+  const toggle = document.getElementById('btn-header-toggle');
+  if (!actions || !toggle) return;
+  const paint = () => {
+    const open = !actions.classList.contains('collapsed');
+    const label = open ? 'ボタンをしまう' : 'ボタンを出す';
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    toggle.setAttribute('aria-label', label);
+    toggle.title = label;
+    document.querySelector('header')?.classList.toggle('tray-open', open);
+  };
+  toggle.addEventListener('click', () => { actions.classList.toggle('collapsed'); paint(); });
+  paint();
+})();
+
+document.getElementById('btn-settings').addEventListener('click', openSheet);
+document.getElementById('btn-close-settings').addEventListener('click', closeAll);
+document.getElementById('btn-threads').addEventListener('click', openPanel);
+document.getElementById('btn-close-threads').addEventListener('click', closeAll);
+overlay.addEventListener('click', closeAll);
+
+/* 行き先メニューは、おおい無しでその場に出す（軽い操作なので） */
+document.getElementById('btn-go').addEventListener('click', (e) => {
+  e.stopPropagation();
+  goMenu.classList.toggle('open');
+});
+document.addEventListener('click', (e) => {
+  if (goMenu.classList.contains('open') && !goMenu.contains(e.target)) goMenu.classList.remove('open');
+});
+
+/* ══════════════════════════════════════════════════════════════
+   スレッド一覧（探す・印・モデル・フォルダ・名前を変える・奥・削除）
+   骨組みは元にした別のアプリの「チャット履歴の大改修（2026-07-19）」と同じ。
+   いまは下のダミーで動いている。Codex はここを /sessions の実データに繋ぐだけでよい。
+   ══════════════════════════════════════════════════════════════ */
+
+/* サーバーが居るときは実データ、居ないとき（見本サーバー）はこのダミーで動く。
+   おかげで同じ index.html を、本番でも見本でもそのまま見られる。 */
+let serverAlive = false;
+
+/* ── 直した画面を、操作なしで届ける（2026-08-20）──────────────
+   iPhone のホーム画面アプリには再読み込みボタンが無い。
+   それまでは画面を `no-store`（キャッシュ完全禁止）で配って毎回115KB落としていたが、
+   キャッシュ完全禁止は重くなるので採らない（2026-07-30 に確定した方針）。
+
+   いまは写しを残して軽くし、**版が変わったときだけ**画面が自分で1回読み直す。
+   版はサーバーが全部の応答に付ける `X-UI-Version`（SSE には付かない）。
+   専用の見張り（ポーリング）は作っていない＝もともと叩いている口に相乗りするだけ。
+
+   ★UI_VERSION が `__` で始まるとき＝サーバーが埋めていない（見本サーバー・ファイル直開き）。
+     そのときは仕組みごと止まる。 */
+const UI_VERSION = '__UI_VERSION__';
+let uiReloading = false;
+
+function canReloadForUi() {
+  if (uiReloading) return false;
+  if (typeof sending !== 'undefined' && sending) return false;      // 返事の途中
+  const el = document.getElementById('input');
+  if (el && el.value.trim()) return false;                          // 打ちかけがある
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return false;
+  if (document.querySelector('.open, .on')) {                        // 何か開いている
+    if (document.querySelector('#threads-panel.open, #memory-panel.open, ' +
+                               '#photos-panel.open, #settings-sheet.open, ' +
+                               '#settings-overlay.open, #photo-tray.on')) return false;
+  }
+  return true;
+}
+
+async function maybeReloadForNewUi(serverVer) {
+  if (!serverVer || !UI_VERSION || UI_VERSION.startsWith('__')) return;
+  if (serverVer === UI_VERSION) return;
+  try {
+    if (sessionStorage.getItem('kiwami_ui_reloaded') === serverVer) return;  // 同じ版で二度やらない
+  } catch (e) { /* プライベートモード等 */ }
+  if (!canReloadForUi()) return;                                     // 次に叩いたとき、また見にくる
+  uiReloading = true;
+  try { sessionStorage.setItem('kiwami_ui_reloaded', serverVer); } catch (e) {}
+  try {
+    await fetch('/', { cache: 'reload' });   // 先に新しい画面を取っておく（生きた写しで戻らないように）
+  } catch (e) {}
+  location.reload();
+}
+
+async function api(path, opts) {
+  try {
+    const r = await fetch(path, opts);
+    if (!r.ok) throw new Error(r.status);
+    serverAlive = true;
+    maybeReloadForNewUi(r.headers.get('X-UI-Version'));   // 応答に相乗りしている版を見る
+    return await r.json();
+  } catch (e) {
+    serverAlive = false;
+    return null;
+  }
+}
+
+let threads = [
+  { id:'t1', title:'引っ越しの手続きの確認',      persona:'1', model:'claude-opus-5',             updated:'いま',    heart:true,  star:false, folder:'',       archived:false },
+  { id:'t2', title:'住所変更の届け出の書き方',      persona:'1', model:'claude-sonnet-5',           updated:'きのう',  heart:false, star:true,  folder:'手続き', archived:false },
+  { id:'t3', title:'転入届の必要書類しらべ',  persona:'1', model:'claude-sonnet-5',           updated:'7月31日', heart:false, star:false, folder:'手続き', archived:false },
+  { id:'t4', title:'シスプロ調整メモ',    persona:'2', model:'claude-opus-4-6',           updated:'7月30日', heart:false, star:true,  folder:'',       archived:false },
+  { id:'t5', title:'観葉植物の水やりの記録',      persona:'1', model:'claude-opus-5',             updated:'7月28日', heart:true,  star:false, folder:'',       archived:false },
+  { id:'t6', title:'キャラの口調を試した回',    persona:'2', model:'claude-fable-5',            updated:'7月26日', heart:false, star:false, folder:'',       archived:false },
+  { id:'t7', title:'去年の家計の集計',        persona:'1', model:'claude-haiku-4-5-20251001', updated:'7月20日', heart:false, star:false, folder:'',       archived:true  },
+];
+
+let currentThreadId = 't1';
+const activeFilters = new Set();          // 空＝すべて。2つ以上入れると AND
+let activeModel = '';                     // モデルチップ（1つだけ）
+
+const FILTER_TESTS = {
+  heart:    t => t.heart,
+  star:     t => t.star,
+  folder:   t => !!t.folder,
+  archived: t => t.archived,
+};
+
+/* プロジェクトの絞り込みは `proj:<id>` の形で入る（チップは一覧から作るので固定名にできない） */
+function filterTest(f) {
+  if (f.startsWith('proj:')) {
+    const id = f.slice(5);
+    return t => String(t.persona) === id;
+  }
+  return FILTER_TESTS[f] || (() => true);
+}
+
+/* 「♡ ★」の後ろ、「フォルダ分け」の前に、プロジェクトのチップを差しなおす */
+function renderProjectChips() {
+  // chipsEl より先に呼ばれることがあるので、ここでは直接引く
+  const el = document.getElementById('filter-chips');
+  if (!el) return;
+  el.querySelectorAll('.filter-chip[data-proj]').forEach(c => c.remove());
+  const anchor = el.querySelector('.filter-chip[data-filter="folder"]');
+  for (const p of PROJECTS) {
+    const b = document.createElement('button');
+    b.className = 'filter-chip' + (activeFilters.has('proj:' + p.id) ? ' active' : '');
+    b.dataset.filter = 'proj:' + p.id;
+    b.dataset.proj = p.id;
+    b.textContent = p.name;
+    el.insertBefore(b, anchor);
+  }
+}
+
+// 選択欄とチップを、はじめの3つで先に組んでおく（サーバーが居れば boot で差し替わる）。
+// ここで呼ぶのは、上の activeFilters が出来てからでないと chips を作れないため。
+fillProjectSelect();
+
+/* モデルの短い印（Opus は数字だけ・他は頭文字を1つ足す） */
+function modelTag(id) {
+  if (!id) return '既定';
+  if (id.startsWith('claude-opus-'))   return id.replace('claude-opus-', '').replace(/-/g, '.');
+  if (id.startsWith('claude-fable-'))  return 'F' + id.replace('claude-fable-', '').replace(/-/g, '.');
+  if (id.startsWith('claude-sonnet-')) return 'S' + id.replace('claude-sonnet-', '').replace(/-/g, '.');
+  if (id.startsWith('claude-haiku-'))  return 'H' + id.replace('claude-haiku-', '').replace(/-\d{8}$/, '').replace(/-/g, '.');
+  return id;
+}
+
+const listEl       = document.getElementById('thread-list');
+const searchEl     = document.getElementById('thread-search');
+const chipsEl      = document.getElementById('filter-chips');
+const modelChipsEl = document.getElementById('model-chips');
+const collapsed    = new Set(JSON.parse(localStorage.getItem('kiwami_folder_collapsed') || '[]'));
+
+function saveCollapsed() {
+  localStorage.setItem('kiwami_folder_collapsed', JSON.stringify([...collapsed]));
+}
+
+function renderModelChips() {
+  const used = [...new Set(threads.map(t => t.model))];
+  modelChipsEl.innerHTML = '';
+  if (used.length < 2) return;            // 1種類しか使っていないなら出さない
+  for (const m of used) {
+    const b = document.createElement('button');
+    b.className = 'filter-chip' + (activeModel === m ? ' active' : '');
+    b.textContent = modelTag(m);
+    b.addEventListener('click', () => {
+      activeModel = (activeModel === m) ? '' : m;
+      renderModelChips(); renderThreads();
+    });
+    modelChipsEl.appendChild(b);
+  }
+}
+
+function visibleThreads() {
+  const q = searchEl.value.trim().toLowerCase();
+  return threads.filter(t => {
+    // 「奥」は、奥チップを押しているときだけ出す
+    if (t.archived && !activeFilters.has('archived')) return false;
+    for (const f of activeFilters) if (!filterTest(f)(t)) return false;
+    if (activeModel && t.model !== activeModel) return false;
+    if (q && !(t.title.toLowerCase().includes(q) || (t.folder || '').toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+
+/* サーバーにスレ引き継ぎの口があるか（/rooms が答える・2026-09-17）。
+   ★ここ（最初の renderThreads より前）で決めておく。下で宣言すると、読み込み時の一覧づくりで使えずに止まる。 */
+let canHikitsugi = false;
+
+function threadCard(t) {
+  const el = document.createElement('div');
+  el.className = 'thread-item' + (t.id === currentThreadId ? ' on' : '');
+
+  const main = document.createElement('div');
+  main.className = 'thread-main';
+
+  const title = document.createElement('div');
+  title.className = 'thread-title';
+  title.textContent = t.title;
+
+  const meta = document.createElement('div');
+  meta.className = 'thread-meta';
+  const marks = [];
+  if (t.heart) marks.push('<span class="heart">♡</span>');
+  if (t.star)  marks.push('<span class="star">★</span>');
+  meta.innerHTML =
+    (marks.length ? `<span class="thread-marks">${marks.join('')}</span>` : '') +
+    `<span>${t.updated}</span>` +
+    (t.turns ? `<span>${t.turns}往復</span>` : '') +
+    `<span>${projName(t.persona)}</span>` +
+    `<span class="model-tag">${modelTag(t.model)}</span>`;
+
+  main.append(title, meta);
+
+  const kebab = document.createElement('button');
+  kebab.className = 'thread-kebab';
+  kebab.textContent = '⋯';
+  kebab.setAttribute('aria-label', 'このスレッドの操作');
+
+  const menu = document.createElement('div');
+  menu.className = 'kebab-menu';
+  const items = [
+    ['名前を変える', 'i-pencil', () => startRename(el, title, t)],
+    [t.folder ? 'フォルダを変える' : 'フォルダへ入れる', 'i-folder', () => startFolder(t)],
+    ...(t.folder ? [['フォルダから出す', 'i-folder-out', () => { t.folder = ''; patchThread(t, { folder: '' }); }]] : []),
+    [t.archived ? '奥から戻す' : '奥へしまう', 'i-archive', () => { t.archived = !t.archived; patchThread(t, { archived: t.archived }); }],
+    ...(canHikitsugi ? [['引き継いで新しいスレへ', 'i-threads', () => startHikitsugi(t)]] : []),
+    ['削除', 'i-trash', () => removeThread(t)],
+  ];
+  for (const [label, icon, fn] of items) {
+    const b = document.createElement('button');
+    b.className = 'kebab-item' + (label === '削除' ? ' danger' : '');
+    b.innerHTML = `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"><use href="#${icon}"/></svg><span>${label}</span>`;
+    b.addEventListener('click', (e) => { e.stopPropagation(); menu.classList.remove('open'); fn(); });
+    menu.appendChild(b);
+  }
+
+  kebab.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const wasOpen = menu.classList.contains('open');
+    document.querySelectorAll('.kebab-menu.open').forEach(m => m.classList.remove('open'));
+    if (!wasOpen) menu.classList.add('open');
+  });
+
+  el.addEventListener('click', () => openThread(t.id));
+  el.append(main, kebab, menu);
+  return el;
+}
+
+/* 印・フォルダ・奥・名前 をサーバーにも反映する（居なければ画面だけ） */
+async function patchThread(t, fields) {
+  renderThreads();
+  await api(`/sessions/${t.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+}
+
+async function removeThread(t) {
+  threads = threads.filter(x => x.id !== t.id);
+  renderModelChips(); renderThreads();
+  await api(`/sessions/${t.id}`, { method: 'DELETE' });
+  if (t.id === currentThreadId && threads.length) openThread(threads[0].id);
+}
+
+/* 名前をその場で書き換える */
+function startRename(card, titleEl, t) {
+  const input = document.createElement('input');
+  input.className = 'title-input';
+  input.value = t.title;
+  titleEl.replaceWith(input);
+  input.focus(); input.select();
+  const done = (save) => {
+    if (save && input.value.trim()) {
+      t.title = input.value.trim();
+      patchThread(t, { title: t.title });
+      return;
+    }
+    renderThreads();
+  };
+  input.addEventListener('click', e => e.stopPropagation());
+  input.addEventListener('blur', () => done(true));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); done(true); }
+    if (e.key === 'Escape') { e.preventDefault(); done(false); }
+  });
+}
+
+/* フォルダ名を入れる（いまは画面だけ。Codex がサーバーに繋ぐ） */
+function startFolder(t) {
+  const name = window.prompt('フォルダの名前', t.folder || '');
+  if (name === null) return;
+  t.folder = name.trim();
+  patchThread(t, { folder: t.folder });
+}
+
+/* 一覧に行を並べる（2026-09-02）。
+   ★まとめて1回で差し込む。1件ずつ入れると、そのたびに画面の組み直しが走る。
+   ★さらに「まず1画面ぶん、残りは次の描き替えで」に分ける。
+     いまは59件で8msだが、スレは増えていくので、増えても待たせない形にしておく。
+   ★renderToken：待っているあいだに組み直されたら、古いぶんは足さない。 */
+let renderToken = 0;
+const FIRST_ROWS = 20;              // まず出す件数（iPhone の1画面に入るのは7件ほど）
+
+function appendCardsChunked(container, items, token) {
+  const frag = document.createDocumentFragment();
+  items.slice(0, FIRST_ROWS).forEach(t => frag.appendChild(threadCard(t)));
+  container.appendChild(frag);
+  if (items.length <= FIRST_ROWS) return;
+  requestAnimationFrame(() => {
+    if (token !== renderToken) return;      // もう新しく組み直されている
+    const rest = document.createDocumentFragment();
+    items.slice(FIRST_ROWS).forEach(t => rest.appendChild(threadCard(t)));
+    container.appendChild(rest);
+  });
+}
+
+function renderThreads() {
+  renderToken++;                    // 前の組み立ての「残り」を止める札
+  const list = visibleThreads();
+  listEl.innerHTML = '';
+
+  if (!list.length) {
+    listEl.innerHTML = '<div class="thread-empty">見つかりませんでした</div>';
+    return;
+  }
+
+  // フォルダのあるものは見出しでまとめ、無いものはそのまま並べる
+  const folders = [...new Set(list.filter(t => t.folder).map(t => t.folder))];
+  for (const f of folders) {
+    const head = document.createElement('div');
+    const isCollapsed = collapsed.has(f);
+    const items = list.filter(t => t.folder === f);
+    head.className = 'folder-head' + (isCollapsed ? ' collapsed' : '');
+    head.innerHTML = `<svg class="chevron"><use href="#i-chevron-down"/></svg>
+                      <svg><use href="#i-folder"/></svg>
+                      <span>${f}</span><span style="opacity:.7">${items.length}</span>`;
+    const body = document.createElement('div');
+    body.className = 'folder-body' + (isCollapsed ? ' collapsed' : '');
+    // フォルダの中は、まだ画面に置いていない入れ物なので、そのまま入れてよい
+    items.forEach(t => body.appendChild(threadCard(t)));
+    head.addEventListener('click', () => {
+      collapsed.has(f) ? collapsed.delete(f) : collapsed.add(f);
+      saveCollapsed(); renderThreads();
+    });
+    listEl.append(head, body);
+  }
+  appendCardsChunked(listEl, list.filter(t => !t.folder), renderToken);
+}
+
+chipsEl.addEventListener('click', (e) => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  const f = chip.dataset.filter;
+  if (f === 'all') activeFilters.clear();
+  else activeFilters.has(f) ? activeFilters.delete(f) : activeFilters.add(f);
+  chipsEl.querySelectorAll('.filter-chip').forEach(c => {
+    c.classList.toggle('active',
+      c.dataset.filter === 'all' ? activeFilters.size === 0 : activeFilters.has(c.dataset.filter));
+  });
+  renderThreads();
+});
+
+searchEl.addEventListener('input', renderThreads);
+document.addEventListener('click', () => {
+  document.querySelectorAll('.kebab-menu.open').forEach(m => m.classList.remove('open'));
+});
+
+renderModelChips();
+renderThreads();
+
+/* ══════════════════════════════════════════════════════════════
+   話す（送信 → /chat/stream → 吹き出しを育てる）
+   ══════════════════════════════════════════════════════════════ */
+
+const chatEl = document.getElementById('chat');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('btn-send');
+const photoBtn = document.getElementById('photo-btn');
+const photoTray = document.getElementById('photo-tray');
+const photoFileInput = document.getElementById('photo-file-input');
+const photoViewer = document.getElementById('photo-viewer');
+const photoViewerImg = document.getElementById('photo-viewer-img');
+const photoViewerClose = document.getElementById('photo-viewer-close');
+/* タッチ端末では Enter は改行にして、送信はボタンだけにする。
+   UA では判定せず、指の当たり方（pointer の粗さ）で見る。 */
+const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+
+/* 入力欄の高さを中身に合わせる */
+input.addEventListener('input', () => {
+  updateSendBtn();          // 書いている最中に打ち始めたら ■ → ↑（2026-09-17）
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+});
+
+/* ── iOS：キーボードが出ても入力欄と送信ボタンを可視領域に保つ ──
+   元にした別のアプリの同じ処理を引き継いだもの。VisualViewport の高さと位置を
+   #app（--app-height / --app-top）に流し込む。非対応の環境（PC 等）は 100dvh のまま。
+
+   ★2026-08-01 返信が下まで勢いよく送られるのが嫌、という指摘。
+   ここでやるのは高さと位置を測って渡すことだけにして、**スクロール位置には一切さわらない**。
+   （当初は「キーボードが出たら最新の発言まで寄せる」処理を入れていたが、
+     読んでいる途中で下へ引き戻されるので取り除いた。画面を動かすのは持ち主の手だけ。） */
+(function () {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const root = document.documentElement;
+  const sync = () => {
+    root.style.setProperty('--app-height', vv.height + 'px');
+    root.style.setProperty('--app-top', vv.offsetTop + 'px');
+  };
+  vv.addEventListener('resize', sync);
+  vv.addEventListener('scroll', sync);
+  sync();
+})();
+
+/* ── いちばん下へ（↓）ボタン（2026-09-29）──
+   元にした別のアプリの同じ処理を引き継いだもの。いちばん下から離れているあいだだけ出て、
+   押すといちばん下へすーっと送る。
+   ★出し入れは「いまの位置」を読むだけ。画面を動かすのは押したときだけ（上の 2026-08-01「ぎゅん」の約束のまま）。
+   ★押してもキーボードを閉じない（mousedown で入力欄のフォーカスを奪わない）。
+   ★元のアプリは「押してから0.9秒は出さない」。極の返事は長く、9,000px のスレだと下りきるまで1.5秒ほどかかり
+     （パソコンの chromium で実測）、途中でボタンがもう一度出てちらつく。極は「いちばん下に着くまで出さない」にした。
+     下りている途中に持ち主が指・ホイール・スクロールバーで止めたら、そこで待つのをやめる（3秒で必ずやめる）。 */
+const toBottomBtn = document.getElementById('btn-to-bottom');
+const TO_BOTTOM_SHOW_PX = 160;  // いちばん下からこれだけ離れたら出す（着地の揺れで点滅しない広さ）
+let toBottomRaf = 0;
+let toBottomGoing = 0;          // 押してから着くまで＝待つのをやめる時刻。着いた・止められたら 0
+function updateToBottomBtn() {
+  toBottomRaf = 0;
+  const rest = chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight;
+  if (toBottomGoing && (rest < 80 || performance.now() > toBottomGoing)) toBottomGoing = 0;
+  const far = rest > TO_BOTTOM_SHOW_PX && !toBottomGoing;
+  if (far) {
+    // 会話の箱の下端から12px上に置く（#app の下端から数える＝入力欄の高さが変わっても追いつく）
+    const gap = document.getElementById('app').getBoundingClientRect().bottom
+              - chatEl.getBoundingClientRect().bottom;
+    toBottomBtn.style.bottom = Math.round(gap + 12) + 'px';
+  }
+  toBottomBtn.classList.toggle('show', far);
+}
+function scheduleToBottomBtn() {
+  if (!toBottomRaf) toBottomRaf = requestAnimationFrame(updateToBottomBtn);
+}
+chatEl.addEventListener('scroll', scheduleToBottomBtn, { passive: true });
+window.addEventListener('resize', scheduleToBottomBtn);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', scheduleToBottomBtn);
+// 行が増えた・スレを切り替えた・返事が伸びた、でも位置が変わるので見直す（1フレームに1回だけ）
+new MutationObserver(scheduleToBottomBtn).observe(chatEl, { childList: true, subtree: true, characterData: true });
+// 入力欄が伸びた・写真を選んだ・キーボードが出た＝会話の箱の高さが変わったときも、ボタンの高さを合わせ直す
+if (window.ResizeObserver) new ResizeObserver(scheduleToBottomBtn).observe(chatEl);
+// 下りている途中に、持ち主が自分で会話をつかんだら、着くのを待つのをやめる
+for (const ev of ['pointerdown', 'touchstart', 'wheel']) {
+  chatEl.addEventListener(ev, () => { toBottomGoing = 0; }, { passive: true });
+}
+toBottomBtn.addEventListener('mousedown', (e) => e.preventDefault());
+toBottomBtn.addEventListener('click', () => {
+  toBottomGoing = performance.now() + 3000;
+  toBottomBtn.classList.remove('show');
+  chatEl.scrollTo({ top: chatEl.scrollHeight, behavior: 'smooth' });
+  setTimeout(scheduleToBottomBtn, 3050);  // 3秒たったら、もう一度だけ見直す
+});
+
+const searchToggle = document.getElementById('search-toggle');
+const winpostToggle = document.getElementById('winpost-toggle');
+const pokedexToggle = document.getElementById('pokedex-toggle');
+const amazonToggle = document.getElementById('amazon-toggle');
+const rougoToggle = document.getElementById('rougo-toggle');   // 老後シミュレーター（2026-09-29）
+const toushinToggle = document.getElementById('toushin-toggle');   // 投資信託ランキング（2026-10-01）
+const guardToggle = document.getElementById('guard-toggle');   // 事実の見張り（2026-09-24・既定は入）
+const sysUserBox = document.getElementById('sysprompt-user');
+let sending = false;
+
+/* iPhone は画面を閉じると通信を切る（2026-09-02）。
+   画面を閉じると返事が出ない、という問題への手当て。
+   ★極のほうは、切れても最後まで書いて保存する。だから画面は
+     **戻ってきたら、そのスレッドを読み直すだけ**でよい。 */
+let awaitingReply = false;      // 送ってから、返事を受け取り切るまで true
+let catchingUp = false;         // 拾い直しの二重起動よけ
+
+/* ■（止める）と ↑（割り込み）（2026-09-17）。
+   背景に回しても返事が来て、◻︎（止める）と↑（割り込み）が使えるようにした。
+   ★書いている最中（受け取っている／「お返事を書いています」で待っている）は、
+     入力欄が空なら ■（止める）、打っていれば ↑（止めてから送る）。 */
+let currentSend = null;         // 走っている send()。止めたあと、これが終わるのを待つ
+let currentCatchUp = null;      // 走っている catchUp()。同じく待つ
+let catchUpWake = null;         // catchUp の「次に聞くまでの待ち」を今すぐ起こす
+let currentReader = null;       // 受け取っている最中の読み口（固まった通信を切るため）
+let lastByteAt = 0;             // 最後に何か届いた時刻
+let visibleSince = Date.now();  // 画面が表に戻った時刻
+/* 通信が黙ったまま固まったと見なすまでの時間。極は無音でも20秒ごとに空打ちを送るので、
+   45秒なにも届かなければ、iPhone が裏で切ったまま知らせてこない形とみなして切り直す */
+let STALL_MS = 45000;
+let CATCHUP_POLL_MS = 2000;                 // 書き終わりを聞きに行く間隔
+const CATCHUP_LIMIT_MS = 20 * 60 * 1000;    // 極の上限（道具ありで15分）より長く待つ
+
+function isBusy() { return sending || awaitingReply; }
+
+function updateSendBtn() {
+  if (!sendBtn) return;
+  const photos = ((typeof selectedPhotos !== 'undefined') ? selectedPhotos.length : 0)
+               + ((typeof selectedFiles !== 'undefined') ? selectedFiles.length : 0);
+  const tomeru = isBusy() && !input.value.trim() && !photos;
+  sendBtn.classList.toggle('stopping', tomeru);
+  sendBtn.setAttribute('aria-label', tomeru ? '止める' : '送信');
+  sendBtn.title = tomeru ? '止める' : '送信';
+  const use = sendBtn.querySelector('use');
+  if (use) use.setAttribute('href', tomeru ? '#i-stop' : '#i-send');
+}
+
+/* 極に「止めて」と頼み、止まりきるのを待つ。止められなかった（古い極・つながらない）ときは false。 */
+async function stopReply() {
+  if (!currentThreadId) return false;
+  const r = await api('/chat/stop', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: currentThreadId }),
+  });
+  if (!r) return false;
+  if (catchUpWake) catchUpWake();            // 待ちの札のあいだなら、すぐ聞き直させる
+  if (currentSend) { try { await currentSend; } catch {} }
+  if (currentCatchUp) { try { await currentCatchUp; } catch {} }
+  // 待ちの札が残ったまま（つながらずに拾い損ねていた）なら、ここで読み直して並べる
+  if (awaitingReply && !sending) await catchUp();
+  return true;
+}
+
+/* 画面が表に出るまで待つ（裏にいるあいだは聞きに行かない） */
+function waitVisible() {
+  if (document.visibilityState === 'visible') return Promise.resolve();
+  return new Promise((resolve) => {
+    const on = () => {
+      if (document.visibilityState !== 'visible') return;
+      document.removeEventListener('visibilitychange', on);
+      resolve();
+    };
+    document.addEventListener('visibilitychange', on);
+  });
+}
+
+const PHOTO_LONG_EDGE = 1568;
+let selectedPhotos = [];        // 送信待ちの写真（data URL）
+
+// ── ファイル（PDF・文字のファイル）を添える（2026-10-01）──────────────
+// PDF を読めるようにするための添付。
+// ★写真と同じボタン・同じ置き場。読むのは極（file_blocks.py）で、ここは中身をそのまま data URL にして送るだけ。
+let selectedFiles = [];         // 送信待ちのファイル {name, type, data}
+let fileSkipped = [];           // 送れなかったファイルの札（黙って消さない）
+const FILE_MAX_BYTES = 30 * 1024 * 1024;   // file_blocks.MAX_BYTES と同じ値
+const FILE_TOTAL_MAX = 40 * 1024 * 1024;   // 1回に選べる合計（大きいのを何本も選ぶと iPhone が落ちうる）
+const FILE_TEXT_RE = /\.(txt|md|csv|tsv|json|log|xml|html?|ya?ml|ini|py|js|css)$/i;
+
+// 'image' / 'pdf' / 'text' / '' （送れない種類）
+function fileKind(file) {
+  const name = file.name || '', type = file.type || '';
+  if (type === 'application/pdf' || /\.pdf$/i.test(name)) return 'pdf';
+  if (type.startsWith('image/') || /\.(heic|heif|jpe?g|png|gif|webp)$/i.test(name)) return 'image';
+  if (type.startsWith('text/') || type === 'application/json' || FILE_TEXT_RE.test(name)) return 'text';
+  return '';
+}
+
+function readAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error || new Error('ファイルを読めませんでした'));
+    r.readAsDataURL(file);
+  });
+}
+
+// 極の file_blocks.clean_name と同じ形（目印の文が、読み直しても同じに見えるように）
+function cleanFileName(name) {
+  let s = String(name || '').replace(/\\/g, '/').split('/').pop();
+  s = s.replace(/[「」\u0000-\u001f\u007f]/g, '').trim();
+  return Array.from(s).slice(0, 80).join('') || 'ファイル';   // 字数は Python と同じ数え方（絵文字も1字）
+}
+
+// 極の file_blocks.mark_for と同じ形
+function fileMark(files) {
+  if (!files.length) return '';
+  const names = files.map(f => cleanFileName(f.name));
+  return names.length === 1 ? `（ファイル「${names[0]}」を送ったよ）`
+       : `（ファイルを${names.length}つ送ったよ：${names.map(n => `「${n}」`).join('')}）`;
+}
+
+// 写真1枚を縮めて data URL にする。
+// ★iPhone の「横向きで撮った写真」は、向きの情報が写真の中に別で入っている。
+//   createImageBitmap に from-image を頼むと、その向きどおりに起こしてくれる。
+//   使えないブラウザでは <img> 経由に落ちる（そちらも今のブラウザは向きを見てくれる）。
+async function shrinkPhoto(file) {
+  let bitmap = null;
+  try {
+    if (window.createImageBitmap) {
+      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    }
+  } catch (e) { bitmap = null; }
+
+  if (!bitmap) {
+    bitmap = await new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('写真を読めませんでした')); };
+      img.src = url;
+    });
+  }
+
+  const sw = bitmap.width, sh = bitmap.height;
+  const scale = Math.min(1, PHOTO_LONG_EDGE / Math.max(sw, sh));
+  const w = Math.max(1, Math.round(sw * scale));
+  const h = Math.max(1, Math.round(sh * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const g = canvas.getContext('2d');
+  // 縮めるときのなめらかさを最高にする（既定より、細かい字が残る）
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(bitmap, 0, 0, w, h);
+  if (bitmap.close) bitmap.close();
+  // ★品質 0.92（2026-08-15）。小さな漢字が読めるように。
+  //   iPhone の写真はすでに JPEG なので、縮めてもう一度 JPEG にすると二重の圧縮になり、
+  //   **いちばん先に潰れるのが小さい漢字**。前は 0.85 で、元のアプリの目（品質90）より低かった。
+  return canvas.toDataURL('image/jpeg', 0.92);
+}
+
+let photoSkipped = 0;           // 読めなかった写真の枚数（黙って消さないための数え）
+
+function renderPhotoTray() {
+  updateSendBtn();          // 写真を選んだら ■ → ↑（写真だけでも割り込んで送れる）
+  photoTray.innerHTML = '';
+  photoTray.classList.toggle('on', selectedPhotos.length > 0 || photoSkipped > 0
+                                   || selectedFiles.length > 0 || fileSkipped.length > 0);
+  photoBtn.classList.toggle('has-photos', selectedPhotos.length > 0 || selectedFiles.length > 0);
+  // ファイルの名札（2026-10-01）。名札そのものが「はずす」ボタン（写真のチップと同じ）
+  selectedFiles.forEach((f, i) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'file-chip';
+    chip.title = 'タップで外す';
+    chip.setAttribute('aria-label', `${cleanFileName(f.name)} を外す`);
+    const tag = document.createElement('span');
+    tag.className = 'file-tag';
+    tag.textContent = f.kind === 'pdf' ? 'PDF' : '文字';
+    const nm = document.createElement('span');
+    nm.className = 'file-name';
+    nm.textContent = cleanFileName(f.name);
+    const x = document.createElement('span');
+    x.className = 'photo-x'; x.textContent = '×';
+    chip.appendChild(tag); chip.appendChild(nm); chip.appendChild(x);
+    chip.addEventListener('click', () => {
+      selectedFiles.splice(i, 1);
+      renderPhotoTray();
+    });
+    photoTray.appendChild(chip);
+  });
+  if (fileSkipped.length) {
+    const note = document.createElement('div');
+    note.className = 'photo-skipped';
+    note.textContent = `${fileSkipped.join('・')}（タップで消す）`;
+    note.addEventListener('click', () => { fileSkipped = []; renderPhotoTray(); });
+    photoTray.appendChild(note);
+  }
+  selectedPhotos.forEach((dataUrl, i) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'photo-chip';
+    chip.title = 'タップで外す';
+    chip.setAttribute('aria-label', 'この写真を外す');
+    const img = document.createElement('img');
+    img.src = dataUrl; img.alt = '';
+    const x = document.createElement('span');
+    x.className = 'photo-x'; x.textContent = '×';
+    chip.appendChild(img); chip.appendChild(x);
+    chip.addEventListener('click', () => {
+      selectedPhotos.splice(i, 1);
+      renderPhotoTray();
+    });
+    photoTray.appendChild(chip);
+  });
+  // 読めなかった写真は、黙って捨てない（そのままだと「押したのに出ない」になる）
+  if (photoSkipped) {
+    const note = document.createElement('div');
+    note.className = 'photo-skipped';
+    note.textContent = `${photoSkipped}枚は開けなかったよ（タップで消す）`;
+    note.addEventListener('click', () => { photoSkipped = 0; renderPhotoTray(); });
+    photoTray.appendChild(note);
+  }
+}
+
+photoBtn.addEventListener('click', () => {
+  if (sending) return;
+  photoFileInput.click();
+});
+
+photoFileInput.addEventListener('change', async () => {
+  const files = Array.from(photoFileInput.files || []);
+  photoFileInput.value = '';           // 同じ写真をもう一度選べるようにする
+  if (!files.length) return;
+  photoBtn.disabled = true;
+  try {
+    for (const file of files) {
+      const kind = fileKind(file);
+      // PDF・文字のファイル（2026-10-01）。縮めずにそのまま送る（読むのは極）
+      if (kind === 'pdf' || kind === 'text') {
+        const nm = cleanFileName(file.name);
+        const total = selectedFiles.reduce((n, f) => n + (f.size || 0), 0);
+        if (file.size > FILE_MAX_BYTES) {
+          fileSkipped.push(`「${nm}」は大きすぎて送れない（30MBまで）`);
+        } else if (total + file.size > FILE_TOTAL_MAX) {
+          fileSkipped.push(`「${nm}」は合わせると大きすぎて送れない（1回40MBまで）`);
+        } else {
+          try {
+            selectedFiles.push({ name: file.name, type: file.type || '', kind, size: file.size,
+                                 data: await readAsDataUrl(file) });
+          } catch (e) {
+            fileSkipped.push(`「${nm}」は開けなかった`);
+            console.error(e);
+          }
+        }
+        renderPhotoTray();
+        continue;
+      }
+      if (kind !== 'image') {
+        fileSkipped.push(`「${cleanFileName(file.name)}」は送れない種類（写真・PDF・文字のファイルだけ）`);
+        renderPhotoTray();
+        continue;
+      }
+      try {
+        selectedPhotos.push(await shrinkPhoto(file));
+      } catch (e) {
+        photoSkipped++;    // 開けなかったぶんは数えて、あとで札にして見せる
+        console.error(e);
+      }
+      renderPhotoTray();   // ★1枚ごとに出す＝たくさん選んでも止まって見えない
+    }
+  } finally {
+    photoBtn.disabled = false;
+  }
+});
+
+// ── 送った写真を大きく見る（2026-08-18）──────────────────────
+// 見づらい：ピンチでズームするしかなく、しかも上と下のメニューに挟まれていた。
+// ★真因は「写真を見るための画面が無い」こと。会話に出ているのは148pxのサムネで、
+//   タップしても何も起きなかったので、ページごとピンチで拡大するしかなかった。
+//   ページごと拡大すると Safari の上下のバーは消えずに居座るので、写真がそこに挟まれる。
+// ★だからページは1ミリもズームさせない。この覆い（position:fixed）を画面いっぱいに出して、
+//   拡大はこの中の transform だけでやる＝バーに食われる部分が無くなる。
+const PHOTO_ZOOM_MIN = 1;
+const PHOTO_ZOOM_MAX = 6;
+const PHOTO_ZOOM_TAP = 2.5;     // ダブルタップで一気に寄る倍率（指1本で使える道）
+// ★2026-08-18 自在に動かせるほうが使いやすい。
+//   寄っていなくても指について動く。行き先も縛らない。
+//   置いた縛りは1つだけ＝**写真が画面の外へ丸ごと出ていかない**（真っ黒になって迷子にならない）。
+const PHOTO_KEEP_ON_SCREEN = 60;   // 画面に必ず残す写真のぶん（px）
+
+let photoZoom = 1;              // いまの倍率
+let photoPanX = 0;              // いまのずらし（px）
+let photoPanY = 0;
+let photoTapAt = 0;             // ダブルタップの判定用
+let photoTouch = null;          // 指の操作の途中経過
+let photoMoved = false;         // いま指で動かしたか（動かした直後は閉じない）
+
+// 倍率とずらしを写真に当てる。等倍でも自在に動く。止まるのは画面から消える手前だけ。
+function applyPhotoZoom(scale, panX = photoPanX, panY = photoPanY) {
+  photoZoom = Math.min(PHOTO_ZOOM_MAX, Math.max(PHOTO_ZOOM_MIN, scale));
+  const baseW = photoViewerImg.offsetWidth  || 0;   // transform を当てる前の見た目の大きさ
+  const baseH = photoViewerImg.offsetHeight || 0;
+  const roomX = Math.max(0, (baseW * photoZoom + window.innerWidth)  / 2 - PHOTO_KEEP_ON_SCREEN);
+  const roomY = Math.max(0, (baseH * photoZoom + window.innerHeight) / 2 - PHOTO_KEEP_ON_SCREEN);
+  photoPanX = Math.min(roomX, Math.max(-roomX, panX));
+  photoPanY = Math.min(roomY, Math.max(-roomY, panY));
+  photoViewerImg.style.transform =
+    `translate(${photoPanX}px, ${photoPanY}px) scale(${photoZoom})`;
+}
+
+// thumbSrc＝いま会話に出ている軽いほう（もう端末にあるので、開いた瞬間に出る）
+// fullSrc ＝長辺1568pxのほう。届いたら黙って差し替える＝待たされない。
+function openPhotoViewer(thumbSrc, fullSrc) {
+  photoViewerImg.src = thumbSrc;
+  if (fullSrc && fullSrc !== thumbSrc) {
+    const big = new Image();
+    big.onload = () => {
+      if (photoViewer.classList.contains('open')) photoViewerImg.src = fullSrc;
+    };
+    big.src = fullSrc;      // 読めなかったら、軽いほうがそのまま出たままになる
+  }
+  photoViewer.classList.add('open');
+  photoViewer.setAttribute('aria-hidden', 'false');
+  applyPhotoZoom(1, 0, 0);
+}
+
+function closePhotoViewer() {
+  photoViewer.classList.remove('open');
+  photoViewer.setAttribute('aria-hidden', 'true');
+  applyPhotoZoom(1, 0, 0);
+  photoViewerImg.removeAttribute('src');   // 次に開いたとき、前の写真が一瞬見えないように
+}
+
+// 覆いの外側（写真以外）をタップしたら閉じる。
+// ★ただし、いま指で動かしていたのなら閉じない（動かした手を離しただけ）。
+photoViewer.addEventListener('click', () => {
+  if (photoMoved) { photoMoved = false; return; }
+  closePhotoViewer();
+});
+photoViewerClose.addEventListener('click', (e) => { e.stopPropagation(); closePhotoViewer(); });
+
+// 写真そのものは、タップしても閉じない。2回続けてタップしたら寄る／戻る。
+photoViewerImg.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (photoMoved) { photoMoved = false; return; }
+  const now = Date.now();
+  if (now - photoTapAt < 350) {
+    photoTapAt = 0;
+    applyPhotoZoom(photoZoom > 1 ? 1 : PHOTO_ZOOM_TAP, 0, 0);
+  } else {
+    photoTapAt = now;
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && photoViewer.classList.contains('open')) {
+    e.preventDefault();
+    // ★覆いだけを閉じる。ここで止めないと、後ろのシール帳や日記まで一緒に閉じる
+    //   （この画面は Escape で閉じるものが複数あるため。2026-08-19 検証で実際に起きた）。
+    e.stopImmediatePropagation();
+    closePhotoViewer();
+  }
+});
+
+function photoFingerDist(t) {
+  return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+}
+
+// 2本指＝ピンチで寄る。寄っている間は1本指で動かせる。
+photoViewer.addEventListener('touchstart', (e) => {
+  const t = e.touches;
+  photoMoved = false;
+  if (t.length === 2) {
+    photoTouch = { mode: 'pinch', dist: photoFingerDist(t), zoom: photoZoom };
+  } else if (t.length === 1) {
+    // ★等倍でも動かせる（2026-08-18）
+    photoTouch = { mode: 'pan', x: t[0].clientX, y: t[0].clientY,
+                   panX: photoPanX, panY: photoPanY };
+  } else {
+    photoTouch = null;
+  }
+}, { passive: true });
+
+photoViewer.addEventListener('touchmove', (e) => {
+  if (!photoTouch) return;
+  const t = e.touches;
+  if (photoTouch.mode === 'pinch' && t.length === 2) {
+    e.preventDefault();
+    photoMoved = true;
+    const d = photoFingerDist(t);
+    if (photoTouch.dist > 0) applyPhotoZoom(photoTouch.zoom * (d / photoTouch.dist));
+  } else if (photoTouch.mode === 'pan' && t.length === 1) {
+    e.preventDefault();
+    const dx = t[0].clientX - photoTouch.x;
+    const dy = t[0].clientY - photoTouch.y;
+    // 少しでも動かしたら「タップ」ではない＝指を離したときに閉じない・寄らない
+    if (Math.abs(dx) + Math.abs(dy) > 6) photoMoved = true;
+    applyPhotoZoom(photoZoom, photoTouch.panX + dx, photoTouch.panY + dy);
+  }
+}, { passive: false });
+
+photoViewer.addEventListener('touchend',    () => { photoTouch = null; }, { passive: true });
+photoViewer.addEventListener('touchcancel', () => { photoTouch = null; }, { passive: true });
+
+// ★iOS Safari だけが持っている合図。2本指のときページごと拡大しようとするのを、
+//   この覆いの上でだけ止める（ふだんの画面のピンチズームは今までどおり効く）。
+['gesturestart', 'gesturechange', 'gestureend'].forEach((name) => {
+  photoViewer.addEventListener(name, (e) => e.preventDefault());
+});
+
+/* 設定はこの端末に覚えておく（スマホごとに好みが違ってよい） */
+const PREF = JSON.parse(localStorage.getItem('kiwami_pref') || '{}');
+function savePref() {
+  localStorage.setItem('kiwami_pref', JSON.stringify({
+    persona: personaSelect.value, account: accountSelect.value,
+    model: modelSelect.value, effort: effortSelect.value,
+    search: searchToggle.checked, winpost: winpostToggle.checked,
+    pokedex: pokedexToggle.checked, amazon: amazonToggle.checked,
+    rougo: rougoToggle.checked,
+    toushin: toushinToggle.checked,
+    guard: guardToggle.checked,
+  }));
+}
+if (PREF.persona) personaSelect.value = PREF.persona;
+/* 旧い名前（別のアプリ側の呼び名）で端末に残っている設定を読み替える。2026-08-13 まで
+   画面は agent/claude2 を送っていて、サーバーの判定（sdk1/sdk2）と食い違っていた。 */
+const ACCOUNT_ALIAS = { agent: 'sdk1', claude2: 'sdk2' };
+if (PREF.account) accountSelect.value = ACCOUNT_ALIAS[PREF.account] || PREF.account;
+if (PREF.model)   modelSelect.value = PREF.model;
+if (PREF.search)  searchToggle.checked = true;
+if (PREF.winpost) winpostToggle.checked = true;
+if (PREF.pokedex) pokedexToggle.checked = true;
+if (PREF.amazon)  amazonToggle.checked = true;
+if (PREF.rougo)   rougoToggle.checked = true;
+if (PREF.toushin) toushinToggle.checked = true;
+if (PREF.guard === false) guardToggle.checked = false;   // 既定は入。切ったときだけ覚えを効かせる
+updateEffortRow();
+if (PREF.effort && [...effortSelect.options].some(o => o.value === PREF.effort)) effortSelect.value = PREF.effort;
+updateHeader();
+[personaSelect, accountSelect, modelSelect, effortSelect, searchToggle, winpostToggle,
+ pokedexToggle, amazonToggle, rougoToggle, toushinToggle, guardToggle]
+  .forEach(el => el.addEventListener('change', savePref));
+
+/* スマホマークに出す行の出し分け（2026-09-06）。
+   図鑑と別画面が、このパソコンに入っているときだけ出します
+   （入っていないのに行だけ出ていると、押しても開かないため）。
+   ★聞きに行くのは、画面が開いたときの1回だけです。 */
+(async () => {
+  try {
+    const r = await fetch('/rooms');
+    const d = await r.json();
+    if (d.zukan)   document.getElementById('go-zukan').style.display = '';
+    if (d.winpost) document.getElementById('go-winpost').style.display = '';
+    /* 公開版には無い道具の口（サーバーが false を返すので出ない） */
+    if (d.rougo) document.getElementById('go-rougo').style.display = '';
+    /* スレ引き継ぎの口があるサーバーのときだけ、⋯ に行を出す（2026-09-17） */
+    if (d.hikitsugi) { canHikitsugi = true; renderThreads(); }
+    /* 図鑑が無いパソコンでは、つまみも出しません（押しても何も持てないため） */
+    if (!d.zukan) {
+      document.getElementById('pokedex-row').style.display = 'none';
+      document.getElementById('pokedex-note').style.display = 'none';
+    }
+  } catch (e) { /* 聞けなかったときは、今までどおりの並びのまま */ }
+})();
+
+/* 「いつ」の見せ方（2026-09-01）。ts は store.py が入れる "2026-09-01T14:30:00" 。 */
+function clockOf(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? '' : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+function dayOf(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const w = '日月火水木金土'[d.getDay()];
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return `今日（${w}）`;
+  const y = d.getFullYear() === now.getFullYear() ? '' : `${d.getFullYear()}年`;
+  return `${y}${d.getMonth() + 1}月${d.getDate()}日（${w}）`;
+}
+/* いまの時刻を、保存されているものと同じ形で作る（toISOString は世界標準時なので使わない） */
+function nowStamp() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+/* 日付が変わったところに置く帯 */
+function daySeparator(iso) {
+  const sep = document.createElement('div');
+  sep.className = 'day-sep';
+  const s = document.createElement('span');
+  s.textContent = dayOf(iso);
+  sep.appendChild(s);
+  chatEl.appendChild(sep);
+}
+
+/* 記憶が動いたことを、会話の流れに残す（2026-09-01）。
+   before＝返事の吹き出し。その手前に差し込むと「覚えた → 返事」の順に並ぶ。 */
+function memoChip(label, text, before) {
+  const d = document.createElement('div');
+  d.className = 'memo-chip';
+  d.textContent = text ? `${label}：${text}` : label;
+  if (before && before.parentNode === chatEl) chatEl.insertBefore(d, before);
+  else chatEl.appendChild(d);
+  return d;
+}
+
+/* リマインダーの札（2026-09-19）。r＝{title, due, notes, label}（remind.py）。
+   AI が一覧（/reminders・reminder_app.py）に登録したしるし。
+   札は返事と一緒に保存されるので、開き直したときも openThread がここを呼んで並べ直す。 */
+function remindChip(r, before) {
+  const d = memoChip('リマインダーに登録しました', r.title + (r.label ? `（${r.label}）` : '（日時なし）')
+                     + (r.notes ? `\nメモ：${r.notes}` : ''), before);
+  d.classList.add('remind-chip');
+  const a = document.createElement('a');
+  a.className = 'remind-btn';
+  a.href = remindHref(r);
+  a.textContent = 'iPhoneのリマインダーに入れる';
+  d.append('\n', a);
+  return d;
+}
+/* ボタンの行き先（2026-09-19）。
+   iPhone のリマインダーに書けるのは iPhone の中のアプリだけなので、公式 Claude アプリに頼む文を入れて開く
+   （claude.ai/new?q=…）。持ち主は送るを押すだけ。★<a> にしてある＝押した指でそのまま開く。
+   同じ形を reminders.html の各行にも置いてある（直すときは両方）。 */
+function remindHref(r) {
+  const y = (r.due || '').slice(0, 4);
+  const when = r.label ? `（${y}年${r.label}）` : '';
+  const text = `iPhoneのリマインダーに登録して：${r.title}${when}` + (r.notes ? `\nメモ：${r.notes}` : '');
+  return 'https://claude.ai/new?q=' + encodeURIComponent(text);
+}
+
+/* 考えていたこと（推論）を、返事の吹き出しのすぐ上に置く（2026-09-02）。
+   返事が伸びている間は、同じ箱の中身を差し替えていく（箱は増やさない）。
+   ★スクロール位置には触らない（HANDOFF「下までぎゅん」の地雷を踏まないため）。
+   ★2026-09-16 見出しに ✦ の印（元のアプリの「ココロ」の見出しと同じ）。言葉は span だけ差し替える。
+     前は伸びるたびに箱の中を下へ送っていた＝勝手にスクロールしてしまう原因。その1行は外した
+     （いまは高さの上限が無いので、送る先も無い）。 */
+function thinkBox(wrap, text, live = false) {
+  if (!text) return null;
+  let d = wrap.querySelector('.think');
+  if (!d) {
+    d = document.createElement('details');
+    d.className = 'think';
+    // ★流れている間は開いて出す（2026-09-02・待っている間ひまにならないように）。
+    //   開き直したときは閉じたまま＝ふだんの会話の見た目は変わらない。
+    d.open = live;
+    const s = document.createElement('summary');
+    s.innerHTML = '<svg aria-hidden="true"><use href="#i-sparkles"/></svg><span></span>';
+    const b = document.createElement('div');
+    b.className = 'think-body';
+    d.append(s, b);
+    wrap.insertBefore(d, wrap.querySelector('.bubble'));
+  }
+  d.querySelector('summary > span').textContent = live ? '考えています…' : '考えていたこと';
+  d.querySelector('.think-body').textContent = text;
+  return d;
+}
+
+function bubbleFor(role, text, photos = null, ts = null) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + (role === 'user' ? 'user' : 'ai');
+  if (role !== 'user') {
+    const name = document.createElement('div');
+    name.className = 'msg-name';
+    name.textContent = projName(curProj());
+    wrap.appendChild(name);
+  }
+  // 送った写真（2026-08-15）。送った直後は data URL、開き直したときはサーバーの名札。
+  if (photos && photos.length) {
+    const photoWrap = document.createElement('div');
+    photoWrap.className = 'msg-photos';
+    for (const p of photos) {
+      const img = document.createElement('img');
+      img.className = 'msg-photo';
+      img.alt = '送った写真';
+      img.loading = 'lazy';
+      const isData = (typeof p === 'string' && p.startsWith('data:'));
+      // 会話に並べるのは軽いサムネ。大きいほうはタップして開いたときだけ読む（2026-08-18）
+      const full = isData ? p : `/photo/${encodeURIComponent(p)}`;
+      img.src = isData ? p : `${full}?thumb=1`;
+      img.setAttribute('role', 'button');
+      img.setAttribute('aria-label', '写真を大きく見る');
+      img.addEventListener('click', () => openPhotoViewer(img.src, full));
+      photoWrap.appendChild(img);
+    }
+    wrap.appendChild(photoWrap);
+  }
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  b.textContent = text;
+  wrap.appendChild(b);
+  if (ts) {
+    const tm = document.createElement('div');
+    tm.className = 'msg-time';
+    tm.textContent = clockOf(ts);
+    wrap.appendChild(tm);
+  }
+  chatEl.appendChild(wrap);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return { wrap, bubble: b };
+}
+
+/* 吹き出しの右下に、アイコンだけを薄く重ねる。
+   第2引数の kind＝'regen'（もう一度）/ 'edit'（書き直して送る）。 */
+function addTools(wrap, kind, onClick) {
+  const bubble = wrap.querySelector('.bubble');
+  if (!bubble) return;
+  let bar = bubble.querySelector('.msg-actions');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.className = 'msg-actions';
+    bubble.appendChild(bar);
+  }
+  const b = document.createElement('button');
+  b.className = 'msg-action-btn';
+  b.setAttribute('aria-label', kind === 'regen' ? 'もう一度' : '書き直して送る');
+  b.title = kind === 'regen' ? 'もう一度' : '書き直して送る';
+  b.innerHTML = `<svg><use href="#${kind === 'regen' ? 'i-refresh' : 'i-pencil'}"/></svg>`;
+  b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+  bar.appendChild(b);
+}
+
+/* 途中で切れたときの手当て（2026-09-02）。
+   ★極は最後まで書いて保存しているので、ここでは**消さずに待つ**。
+     画面が起きていれば、すぐ拾いに行く。寝ていれば、起きたときに拾う。 */
+function cutOff(bubble, got) {
+  // 届いていたぶんは消さない。その後ろに「まだ書いています」の印を足す。
+  bubble.textContent = got || '';
+  bubble.insertAdjacentHTML('beforeend',
+    (got ? ' ' : '') + '<span class="typing-label">お返事を書いています</span>'
+    + '<span class="typing"><i></i><i></i><i></i></span>');
+  updateSendBtn();                 // 待っているあいだも ■ で止められる
+  if (document.visibilityState === 'visible') setTimeout(catchUp, 400);
+}
+
+/* 返事を待っている札。読み直すまでの間、画面を白いままにしないため。 */
+function waitingBubble() {
+  const { bubble } = bubbleFor('ai', '', null, nowStamp());
+  bubble.innerHTML = '<span class="typing-label">お返事を書いています</span>'
+                   + '<span class="typing"><i></i><i></i><i></i></span>';
+}
+
+/* 戻ってきたときに、書き上がった返事を拾う（2026-09-02）。
+   極に「まだ書いている？」と聞き、書き終わっていたらスレッドを読み直す。 */
+async function catchUp({ showWait = false } = {}) {
+  if (catchingUp || !currentThreadId) return;
+  catchingUp = true;
+  if (showWait) waitingBubble();
+  updateSendBtn();
+  const tid = currentThreadId;
+  /* ★2026-09-17 の直し（背景に回しても返事が来るように）
+     ・前は3分で見切っていた。道具ありの返事は15分まで書くので、書き終わる前にあきらめていた。
+     ・前は1回つながらないだけで読むのをやめ、「お返事を書いています」の札のまま黙っていた
+       （戻った直後は回線がまだ起きていないことがある）。少し待って聞き直し、
+       それでもだめなら awaitingReply を立てたまま置いて、次に戻ってきたときに拾う。 */
+  const job = (async () => {
+    const until = Date.now() + CATCHUP_LIMIT_MS;
+    let misses = 0;
+    while (Date.now() < until) {
+      await waitVisible();
+      const st = await api(`/chat/status?session_id=${encodeURIComponent(tid)}`);
+      if (st && !st.running) break;          // 書き終わった
+      if (!st && ++misses >= 6) return;      // つながらない＝次に戻ってきたときに拾う
+      if (st) misses = 0;
+      await new Promise((r) => { catchUpWake = r; setTimeout(r, st ? CATCHUP_POLL_MS : 1000 * misses); });
+      catchUpWake = null;
+    }
+    // 読み直しも、つながらなければ少し待って聞き直す（それでもだめなら、次に戻ってきたときに拾う）
+    for (let k = 1; ; k++) {
+      if (currentThreadId !== tid) { awaitingReply = false; return; }   // 別のスレッドへ移った
+      await waitVisible();
+      if (await openThread(tid)) break;
+      if (k >= 6) return;
+      await new Promise((r) => setTimeout(r, 1000 * k));
+    }
+    awaitingReply = false;                   // 保存ずみの返事が、ここで並んだ
+    loadSessions();
+  })();
+  currentCatchUp = job;
+  try {
+    await job;
+  } finally {
+    catchUpWake = null;
+    catchingUp = false;
+    if (currentCatchUp === job) currentCatchUp = null;
+    updateSendBtn();
+  }
+}
+
+/* 画面が戻ってきたとき。送りっぱなしのものがあれば拾いに行く。
+   ★まだ流れが生きているとき（sending）は触らない＝二重に出さない。 */
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') visibleSince = Date.now();
+  if (document.visibilityState === 'visible' && awaitingReply && !sending) catchUp();
+});
+
+/* ★通信が黙ったまま固まったら、切って読み直す（2026-09-17）。
+   iPhone は裏に回した通信を、切ったと知らせないまま止めることがある。そうなると
+   「切れた」の合図も来ないので、戻ってきても返事が並ばない。
+   表に出て少し経っても、STALL_MS のあいだ何も届いていなければ、こちらから切る
+   （切れば下の send() が「途中で切れた」として待ちの札を出し、書き終わりを聞きに行く）。 */
+setInterval(() => {
+  if (!sending || !currentReader || document.visibilityState !== 'visible') return;
+  if (Date.now() - visibleSince < 3000) return;          // 戻った直後は、届くのを少し待つ
+  if (Date.now() - lastByteAt <= STALL_MS) return;
+  const r = currentReader;
+  currentReader = null;
+  r.cancel().catch(() => {});
+}, 1000);
+
+/* 走っている送信を currentSend に持っておく（■・↑ が、終わるのを待てるように） */
+function send(text, opts) {
+  if (sending) return Promise.resolve();
+  const job = _send(text, opts);
+  currentSend = job;
+  job.finally(() => { if (currentSend === job) currentSend = null; });
+  return job;
+}
+
+/* ↑ ボタン・Enter。書いている最中なら、止めてから送る（＝割り込み）。
+   入力欄が空で書いている最中なら ■＝止めるだけ。 */
+async function sendOrStop() {
+  const karappo = !input.value.trim() && !selectedPhotos.length && !selectedFiles.length;
+  if (isBusy()) {
+    const ok = await stopReply();
+    if (karappo || !ok) { updateSendBtn(); return; }   // 止められなかったら、打った言葉は入力欄に残す
+  }
+  return send();
+}
+
+async function _send(text, { replaceLast = false } = {}) {
+  if (sending) return;
+  const body = (text ?? input.value).trim();
+  if (!body && !selectedPhotos.length && !selectedFiles.length) return;
+  // ★「もう一度」（replaceLast）では写真もファイルも持っていかない。
+  //   置き場に選びかけの写真があるときに押されると、黙って送られて消えてしまうため。
+  const photos = replaceLast ? [] : selectedPhotos;
+  const files = replaceLast ? [] : selectedFiles;
+  if (!replaceLast) {
+    selectedPhotos = [];
+    selectedFiles = [];
+    photoSkipped = 0;        // 送ったら、開けなかった札も片づける
+    fileSkipped = [];
+    renderPhotoTray();
+  }
+  sending = true; awaitingReply = true;
+  // ★前は送信中にボタンを半透明にしていた。いまは ■（止める）として押せるので薄くしない（2026-09-17）
+
+  const mark = photos.length === 1 ? '（写真を送ったよ）'
+             : photos.length ? `（写真を${photos.length}枚送ったよ）` : '';
+  // ファイルの目印は頭に（極が履歴に残す形＝ファイル → 写真 → 本文 と同じ順）
+  const shownText = fileMark(files) + (photos.length ? (mark + body) : body);
+  if (!replaceLast) {
+    const u = bubbleFor('user', shownText, photos.length ? photos : null, nowStamp());
+    curTurns += 1; updateHeader();      // 1つ話しかけた＝1往復ふえる
+    addTools(u.wrap, 'edit', () => {
+      input.value = body;
+      input.dispatchEvent(new Event('input'));
+      input.focus();
+    });
+  }
+  input.value = ''; input.style.height = 'auto';
+  updateSendBtn();                     // 入力欄が空になった＝■（止める）の顔になる
+
+  const { wrap, bubble } = bubbleFor('ai', '', null, nowStamp());
+  // 返事が来るまで、吹き出しの中でふわふわさせる（固まって見えないように）
+  const TYPING = '<span class="typing"><i></i><i></i><i></i></span>';
+  bubble.innerHTML = TYPING;
+
+  const payload = {
+    session_id: currentThreadId,
+    text: body,
+    images: photos,
+    files: files.map(f => ({ name: f.name, type: f.type, data: f.data })),
+    persona: personaSelect.value,
+    account: accountSelect.value,
+    model: modelSelect.value,
+    effort: effortRow.style.display === 'none' ? null : effortSelect.value,
+    web_search: searchToggle.checked,
+    winpost: winpostToggle.checked,
+    pokedex: pokedexToggle.checked,
+    amazon: amazonToggle.checked,
+    rougo: rougoToggle.checked,
+    toushin: toushinToggle.checked,
+    guard: guardToggle.checked,
+  };
+
+  let got = '', thought = '', streamStarted = false;
+  /* ★「終わった」と言えるのは done が届いたときだけ（2026-09-02）。
+     iPhone の画面を閉じると、通信は**きれいに切れる**ことがある。
+     それを「終わった」と見てしまうと、返事が来ないまま話が終わってしまう。 */
+  let gotDone = false;
+  let gotStopped = false;      // ■ で止めた（2026-09-17）。事故ではないので断り文は出さない
+  try {
+    const res = await fetch('/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok || !res.body) throw new Error('no stream');
+    serverAlive = true;
+    streamStarted = true;      // ここまで来たら「極には届いている」
+
+    const reader = res.body.getReader();
+    currentReader = reader;            // 固まった通信を切れるように
+    lastByteAt = Date.now();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      lastByteAt = Date.now();
+      buf += dec.decode(value, { stream: true });
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for (const p of parts) {
+        if (!p.startsWith('data: ')) continue;
+        let ev; try { ev = JSON.parse(p.slice(6)); } catch { continue; }
+        if (ev.kind === 'text') {
+          got += ev.payload;
+          bubble.textContent = got;
+          /* ★ここで下まで寄せないこと（2026-08-02 の指摘）。
+             返事が伸びるあいだ引き戻され続ける＝「下までぎゅん」の地雷。
+             読む速さは持ち主の手にまかせる（HANDOFF「スクロール位置には一切さわらない」）。 */
+        } else if (ev.kind === 'thinking') {
+          /* 考えている中身。★そのままつなぐ ── 届くのは粒（ひとかけら）なので、
+             ここで改行を挟むと1文字ごとに改行が入る（2026-09-02）。 */
+          thought += ev.payload;
+          thinkBox(wrap, thought, true);
+        } else if (ev.kind === 'phase') {
+          /* いま何をしているか（2026-09-02）。返事が来るまでの間を、
+             ふわふわだけで待たせないための札。 */
+          if (!got) {
+            const label = ev.payload === 'thinking' ? '考えています' : '書いています';
+            bubble.innerHTML = `<span class="typing-label">${label}</span>` + TYPING;
+          }
+        } else if (ev.kind === 'tool') {
+          /* payload は {name,label,text,keep}（2026-09-01 から）。
+             古い形（道具の名前だけの文字列）で来ても壊れないようにしておく。 */
+          const t = ev.payload;
+          const rich = t && typeof t === 'object';
+          const label = rich ? t.label
+                     : (t === 'WebSearch' ? '調べています' : `${t} を使っています`);
+          if (rich && t.remind) {
+            remindChip(t.remind, wrap);      // リマインダーの札＝押すと iPhone のリマインダーへ
+          } else if (rich && t.keep) {
+            memoChip(label, t.text, wrap);   // 記憶が動いた＝会話の中に残す
+          } else if (!got) {
+            // 道具を使っている間も、ふわふわは止めない
+            bubble.innerHTML = `<span class="typing-label">${label}</span>` + TYPING;
+          }
+        } else if (ev.kind === 'stopped') {
+          gotStopped = true;
+        } else if (ev.kind === 'done') {
+          gotDone = true;
+        } else if (ev.kind === 'error') {
+          /* ★書けていたぶんは消さない（2026-09-07）。それまでは textContent を
+             まるごと差し替えていたので、「制度を調べます。少しお待ちください。」まで
+             書けていた返事が、断り文ひとつで消えていた＝使う人には「止まった」に見える。
+             いまは、書けたぶんの下に、断り文を足すだけ。 */
+          got += (got ? '\n\n' : '') + 'うまくいきませんでした：' + ev.payload;
+          bubble.textContent = got;
+          gotDone = true;              // 断られたときも、待ち続けない
+        }
+      }
+    }
+    // 見出しを「考えていたこと」に戻す（開いたままにして、
+    // 読み終わってから自分で閉じられるようにする）。
+    if (thought) thinkBox(wrap, thought, false);
+    if (!gotDone) {
+      // done が来ないまま切れた＝画面を閉じたとき。極は書き続けているので、待つ。
+      cutOff(bubble, got);
+    } else if (gotStopped && !got) {
+      // ■ で、1文字も書かないうちに止めた。極も何も残していないので、吹き出しごと下げる
+      awaitingReply = false;
+      wrap.remove();
+      loadSessions();
+    } else {
+      awaitingReply = false;
+      if (!got) bubble.textContent = bubble.textContent || '……';
+      addTools(wrap, 'regen', () => regenerate(body, wrap));
+      loadSessions();
+    }
+  } catch (e) {
+    if (streamStarted) {
+      // 極には届いていて、途中で通信だけが切れた（iPhone の画面を閉じたとき）
+      cutOff(bubble, got);
+    } else {
+      awaitingReply = false;
+      serverAlive = false;
+      bubble.textContent = '（見本の画面です。サーバーに繋がっていないので、ここは返事をしません）';
+      // 送れなかったときは、選んだ写真を置き場に戻す（2026-08-15）。
+      // 写真は撮り直し・選び直しがいちばん手間なので、消さずに残しておく。
+      if (photos.length) { selectedPhotos = photos.concat(selectedPhotos); renderPhotoTray(); }
+      if (files.length) { selectedFiles = files.concat(selectedFiles); renderPhotoTray(); }
+    }
+  } finally {
+    sending = false;
+    currentReader = null;
+    updateSendBtn();
+  }
+}
+
+function regenerate(originalText, oldWrap) {
+  if (isBusy()) return;        // 書いている最中は消さない（前は吹き出しだけ消えて送られなかった）
+  oldWrap.remove();
+  send(originalText, { replaceLast: true });
+}
+
+sendBtn.addEventListener('click', () => sendOrStop());
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !isTouchDevice) {
+    e.preventDefault();
+    if (input.value.trim() || selectedPhotos.length || selectedFiles.length) sendOrStop();   // Enter で ■ は押さない
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════
+   スレッドの読み書き
+   ══════════════════════════════════════════════════════════════ */
+
+async function loadSessions() {
+  const d = await api('/sessions');
+  if (!d) return false;
+  threads = d.sessions;
+  renderModelChips(); renderThreads();
+  return true;
+}
+
+async function openThread(id) {
+  /* ★開いていた「考えていたこと」は、読み直しても開いたまま（2026-09-17）。
+     窓が途中で閉じると、読みかけなのにまた押さないといけなくなる。
+     閉じていた正体＝ここ。戻ってきたとき・固まった通信を切ったとき・■ のあとは、catchUp が
+     書き終わりを待って同じスレッドを読み直す。そのとき会話をまるごと作り直し、窓を閉じた形で作っていた。
+     いまは、同じスレッドを読み直すときだけ、開いている窓の文を覚えておいて、同じ文の窓を開いて出す。
+     ・並び順ではなく文で合わせる（送れなかった「見本の画面です」の吹き出しが画面にだけ残ると、順がずれるため）
+     ・途中で切れた窓は、保存された全文の頭と同じ＝頭が合えば開く（短すぎる頭は、よその窓と取り違えるので見ない）
+     ・別のスレッドを開いたときは今までどおり閉じたまま（ふだんの会話の見た目は変えない） */
+  const keepOpen = id === currentThreadId
+    ? [...chatEl.querySelectorAll('.think[open] .think-body')].map(b => b.textContent)
+    : [];
+  currentThreadId = id;
+  renderThreads(); renderModelChips();
+  const d = await api(`/sessions/${id}`);
+  if (!d) return false;                 // サーバーが居ない＝見本。画面はそのまま（読めたかを返す）
+  chatEl.innerHTML = '';
+  curTurns = (d.messages || []).filter(m => m.role === 'user').length;
+  let lastDay = '';
+  for (const m of (d.messages || [])) {
+    const day = String(m.ts || '').slice(0, 10);
+    if (day && day !== lastDay) { daySeparator(m.ts); lastDay = day; }
+    // 引き継ぎメモ（2026-09-17）。メモの上に、どのスレから来たかの帯を置く
+    if (m.kind === 'hikitsugi') memoChip(`前のスレ「${m.from_title || '名前なし'}」からの引き継ぎメモ`, '', null);
+    // リマインダーの札（2026-09-19）。返事と一緒に保存してある＝開き直しても、返事の上に並べて押せる
+    if (m.role !== 'user' && Array.isArray(m.reminders)) m.reminders.forEach(r => remindChip(r, null));
+    const { wrap } = bubbleFor(m.role, m.text, m.photos && m.photos.length ? m.photos : null, m.ts);
+    // 保存してある「考えていたこと」を、開き直したときにも出す（2026-09-02）。
+    // ★前から保存はされていた（store.add_message の thinking）。出していなかっただけ。
+    if (m.role !== 'user' && m.thinking) {
+      const box = thinkBox(wrap, m.thinking);
+      if (keepOpen.some(k => k === m.thinking || (k.length >= 30 && m.thinking.startsWith(k)))) box.open = true;
+    }
+    if (m.role === 'user') {
+      addTools(wrap, 'edit', () => {
+        input.value = m.text;
+        input.dispatchEvent(new Event('input'));
+        input.focus();
+      });
+    }
+  }
+  if (d.persona) personaSelect.value = d.persona;
+  updateHeader();                       // 往復数もここで出し直す
+  closeAll();
+  return true;
+}
+
+async function newThread() {
+  const d = await api('/sessions', { method: 'POST' });
+  if (!d) { closeAll(); return; }
+  currentThreadId = d.id;
+  chatEl.innerHTML = '';
+  curTurns = 0; updateHeader();
+  await loadSessions();
+  closeAll();
+}
+document.getElementById('btn-new-thread').addEventListener('click', newThread);
+
+/* スレ引き継ぎ（2026-09-17）。
+   ⋯ の「引き継いで新しいスレへ」から。そのスレの相手が引き継ぎメモを書き、
+   「〇〇（続き）」の新しいスレの最初の発言として残る。次に話しかけると、メモを頭にして続きから話す。
+   ★書いているあいだは、ふだんの返事の待ちと同じ札・同じ拾い方（catchUp）。
+     画面を閉じても極は書き切るので、戻ってきたときに並ぶ。■ で止めることもできる。
+   ★道具のつまみ・枠・モデルは送信と同じ値を渡す（前の送信と道具の並びが同じなら、キャッシュがそのまま効く）。 */
+async function startHikitsugi(t) {
+  // 送信・待ちの札の状態は画面に1つしか無いので、どのスレでも書いている最中は受けない
+  if (isBusy()) {
+    window.alert('いまお返事を書いています。書き終わってから引き継いでください');
+    return;
+  }
+  const d = await api(`/sessions/${t.id}/hikitsugi`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      account: accountSelect.value,
+      model: modelSelect.value,
+      effort: effortRow.style.display === 'none' ? null : effortSelect.value,
+      web_search: searchToggle.checked,
+      winpost: winpostToggle.checked,
+      pokedex: pokedexToggle.checked,
+      amazon: amazonToggle.checked,
+      rougo: rougoToggle.checked,
+      toushin: toushinToggle.checked,
+    }),
+  });
+  if (!d) { closeAll(); return; }                  // サーバーが居ない＝見本の画面
+  if (!d.ok) { window.alert(d.reason || '引き継げませんでした'); return; }
+
+  currentThreadId = d.id;
+  if (d.persona) personaSelect.value = d.persona;
+  chatEl.innerHTML = '';
+  curTurns = 0; updateHeader();
+  closeAll();
+  memoChip(`前のスレ「${d.from_title || '名前なし'}」からの引き継ぎメモ`, '', null);
+  const { bubble } = bubbleFor('ai', '', null, nowStamp());
+  bubble.innerHTML = '<span class="typing-label">引き継ぎメモを書いています</span>'
+                   + '<span class="typing"><i></i><i></i><i></i></span>';
+  awaitingReply = true;
+  updateSendBtn();
+  loadSessions();
+  catchUp();                                       // 書き終わったら、スレを読み直してメモを並べる
+}
+
+/* ══════════════════════════════════════════════════════════════
+   おぼえていること（見る・直す・消す・じぶんで足す）
+   ══════════════════════════════════════════════════════════════ */
+
+const memPanel = document.getElementById('memory-panel');
+const memList  = document.getElementById('memory-list');
+const memBags  = document.getElementById('memory-bags');
+
+/* いま開いている袋。'own'＝このプロジェクト / 'shared'＝みんな共通（2026-09-02）。
+   ★開くたび 'own' に戻す。前に見ていた袋を覚えていると、
+     次に開いたときにどちらを直しているのか分からなくなるため。 */
+let memBag = 'own';
+function memBagId()   { return memBag === 'shared' ? SHARED_BAG  : curProj(); }
+function memBagName() { return memBag === 'shared' ? SHARED_NAME : projName(curProj()); }
+
+/* たたむ（2026-10-14・メモリが長すぎる、という持ち主の困りごとから）。
+   たたんだ記憶は、極が毎回は頭だけ読み、要るときに全文を開く。中身は変わらない。
+   切り替えを出すのは長い記憶だけ。「★」で始まる記憶（決まり）は、たたんでも全文が積まれるので出さない。 */
+const MEMO_FOLD_MIN = 120;
+function memoFoldable(m) {
+  return !String(m.text || '').trim().startsWith('★')
+    && (m.fold || String(m.text || '').length >= MEMO_FOLD_MIN);
+}
+
+function memoCard(m) {
+  const el = document.createElement('div');
+  el.className = 'memo-item';
+  const folded = !!m.fold && memoFoldable(m);
+  if (folded) el.classList.add('folded');
+
+  const txt = document.createElement('div');
+  txt.className = 'memo-text';
+  // たたんだ記憶は頭だけ。タップすると全文が開いて、そのまま直せる
+  txt.textContent = folded ? (m.head || m.text) : m.text;
+  // タップでその場で直せる
+  txt.addEventListener('click', () => {
+    const ta = document.createElement('textarea');
+    ta.className = 'memo-edit';
+    ta.value = m.text;
+    ta.rows = Math.min(5, Math.ceil(m.text.length / 22));
+    txt.replaceWith(ta);
+    ta.focus();
+    const done = async (save) => {
+      if (save && ta.value.trim() && ta.value.trim() !== m.text) {
+        await api(`/memories/${m.id}?persona=${encodeURIComponent(memBagId())}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: ta.value.trim() }),
+        });
+      }
+      loadMemories();
+    };
+    ta.addEventListener('blur', () => done(true));
+    ta.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); done(true); }
+      if (e.key === 'Escape') { e.preventDefault(); done(false); }
+    });
+  });
+
+  const by = document.createElement('span');
+  by.className = 'memo-by';
+  // 共通の袋は書き手が混ざるので、誰が書いたかを出す（memory.add の by・2026-09-02）
+  by.textContent = m.source === 'user' ? 'じぶん' : (m.by || projName(curProj()));
+
+  const del = document.createElement('button');
+  del.className = 'memo-del';
+  del.setAttribute('aria-label', 'これを忘れる');
+  del.innerHTML = '<svg><use href="#i-trash"/></svg>';
+  // 捨てる操作なので、ここだけ確認を出す（UIの手引き4章）
+  del.addEventListener('click', async () => {
+    if (!window.confirm(`これを忘れますか？\n\n${m.text}`)) return;
+    await api(`/memories/${m.id}?persona=${encodeURIComponent(memBagId())}`, { method: 'DELETE' });
+    loadMemories();
+  });
+
+  if (!memoFoldable(m)) {
+    el.append(txt, by, del);
+    return el;
+  }
+  // たたむ・ひらくは避けるだけの操作なので、確認は出さない（UIの手引き 1-6）
+  const body = document.createElement('div');
+  body.className = 'memo-body';
+  const fold = document.createElement('button');
+  fold.className = 'memo-fold';
+  fold.textContent = folded ? 'ひらく' : 'たたむ';
+  fold.setAttribute('aria-label', folded ? 'この記憶をひらく（極が毎回ぜんぶ読む）'
+                                         : 'この記憶をたたむ（極は毎回は頭だけ読む）');
+  fold.addEventListener('click', async () => {
+    await api(`/memories/${m.id}/fold?persona=${encodeURIComponent(memBagId())}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fold: !folded }),
+    });
+    loadMemories();
+  });
+  body.append(txt, fold);
+  el.append(body, by, del);
+  return el;
+}
+
+async function loadMemories() {
+  const d = await api(`/memories?persona=${encodeURIComponent(memBagId())}`);
+  const note = document.getElementById('memory-count');
+  if (!d) {
+    memList.innerHTML = '<div class="thread-empty">サーバーに繋がっていません</div>';
+    return;
+  }
+  memList.innerHTML = '';
+  if (!d.memories.length) {
+    memList.innerHTML = (memBag === 'shared')
+      ? '<div class="thread-empty">みんな共通の袋は、まだ空です</div>'
+      : '<div class="thread-empty">まだ何も覚えていません</div>';
+  } else {
+    d.memories.forEach(m => memList.appendChild(memoCard(m)));
+  }
+  if (note) {
+    const p = projOf(curProj()) || {};
+    note.innerHTML = `<strong>${memBagName()}</strong>の袋に、いま <strong>${d.count}件</strong>。`
+      + (memBag === 'shared'
+          ? 'この袋は、どのプロジェクトからも読めて、どこからでも書き足せます。'
+          : (p.memory ? '袋はプロジェクトごとに分かれています。'
+                      : 'いまこのプロジェクトは「おぼえない」設定です。'))
+      + memoCapNote(d);
+  }
+}
+
+/* 毎回積む件数には上限がある（新しいほうから）。超えると古いものから黙って積まれなくなるので、
+   近づいたら・超えたら、ここに出す（2026-10-14）。 */
+function memoCapNote(d) {
+  const cap = d.max || 0;
+  const folded = (d.memories || []).filter(m => m.fold && memoFoldable(m)).length;
+  let s = folded ? `たたんだ${folded}件は、極が毎回は頭だけ読み、要るときに全文を開きます。` : '';
+  if (cap && d.count > cap) {
+    s += `毎回積むのは新しい${cap}件までなので、いちばん古い${d.count - cap}件は積まれていません。`;
+  } else if (cap && cap - d.count < 5) {
+    s += `毎回積むのは新しい${cap}件まで。あと${cap - d.count + 1}件ふえると、いちばん古いものから積まれなくなります。`;
+  }
+  return s ? `<br>${s}` : '';
+}
+
+/* 「このプロジェクト」と「みんな共通」の切り替え（手帳の絞り込みと同じ操作）。 */
+memBags.addEventListener('click', (e) => {
+  const btn = e.target.closest('.filter-chip');
+  if (!btn) return;
+  memBag = btn.dataset.bag;
+  [...memBags.children].forEach(b => b.classList.toggle('active', b === btn));
+  loadMemories();
+});
+
+/* ── 手帳（話したことを、話題ごとの粒にして勝手に覚えていく）──────────────
+   2026-09-02 に、上のアイコンから開く自分の画面にした。
+   ・ことばで探せる（意味の近さと、文字の一致の両方で探す）
+   ・1件ずつ、その場で直せる・忘れられる（おぼえていることと同じ操作）
+   2026-09-03：並ぶのは日付つきの粒だけ（会話そのままは入れない）。
+   手帳が使えない環境（計算用の部品が無い）では、上のアイコンごと出さない。 */
+const techoPanel  = document.getElementById('techo-panel');
+const techoList   = document.getElementById('techo-list');
+const techoSearch = document.getElementById('techo-search');
+const techoHeadCount = document.getElementById('techo-panel-count');
+const btnTecho    = document.getElementById('btn-techo');
+let techoTimer = null;       // 打っている途中で毎文字探しに行かないための間
+
+function techoCard(it) {
+  const el = document.createElement('div');
+  el.className = 'memo-item';
+
+  const txt = document.createElement('div');
+  txt.className = 'memo-text';
+  txt.textContent = it.text;
+  // タップでその場で直せる（おぼえていることと同じ操作）
+  txt.addEventListener('click', () => {
+    const ta = document.createElement('textarea');
+    ta.className = 'memo-edit';
+    ta.value = it.text;
+    ta.rows = Math.min(8, Math.max(3, Math.ceil(it.text.length / 22)));
+    txt.replaceWith(ta);
+    ta.focus();
+    let closed = false;
+    const done = async (save) => {
+      if (closed) return;
+      closed = true;
+      const v = ta.value.trim();
+      if (save && v && v !== it.text) {
+        await api(`/techo/${it.id}?persona=${encodeURIComponent(curProj())}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: v }),
+        });
+      }
+      loadTecho();
+    };
+    ta.addEventListener('blur', () => done(true));
+    // 改行キーはそのまま改行（この家の決まり）。やめるときは Esc
+    ta.addEventListener('keydown', (e) => { if (e.key === 'Escape') done(false); });
+  });
+
+  const by = document.createElement('span');
+  by.className = 'memo-by';
+  by.textContent = it.date || '';
+
+  const del = document.createElement('button');
+  del.className = 'memo-del';
+  del.setAttribute('aria-label', 'これを忘れる');
+  del.innerHTML = '<svg><use href="#i-trash"/></svg>';
+  // 捨てる操作なので、ここだけ確認を出す
+  del.addEventListener('click', async () => {
+    if (!window.confirm(`これを忘れますか？
+
+${it.text}`)) return;
+    await api(`/techo/${it.id}?persona=${encodeURIComponent(curProj())}`, { method: 'DELETE' });
+    loadTecho();
+  });
+
+  el.append(txt, by, del);
+  return el;
+}
+
+async function loadTecho() {
+  const q = (techoSearch.value || '').trim();
+  const d = await api(`/techo?persona=${encodeURIComponent(curProj())}`
+                      + `&limit=100&q=${encodeURIComponent(q)}`);
+  if (!d) {
+    techoList.innerHTML = '<div class="thread-empty">サーバーに繋がっていません</div>';
+    return;
+  }
+  const s = d.stats || {};
+  techoHeadCount.textContent = s.enabled
+    ? `（${s.note || 0}件・${s.days || 0}日ぶん）` : '';
+  techoList.innerHTML = '';
+  if (!s.enabled) {
+    techoList.innerHTML = '<div class="thread-empty">このパソコンでは手帳を開けません</div>';
+    return;
+  }
+  if (!d.items.length) {
+    techoList.innerHTML = q
+      ? '<div class="thread-empty">見つかりませんでした</div>'
+      : '<div class="thread-empty">まだ何も書いていません</div>';
+    return;
+  }
+  d.items.forEach(it => techoList.appendChild(techoCard(it)));
+}
+
+techoSearch.addEventListener('input', () => {
+  clearTimeout(techoTimer);
+  techoTimer = setTimeout(loadTecho, 260);   // 打ち終わってから探しに行く
+});
+btnTecho.addEventListener('click', () => {
+  overlay.classList.add('open');
+  // おおいを出してから1枚ぶん置いて、横から滑り込むのを見せる（openLater にまとめた）。
+  openLater(techoPanel);
+  loadTecho();
+});
+document.getElementById('btn-close-techo').addEventListener('click', closeAll);
+
+// 手帳が使えないパソコンでは、上のアイコンごと出さない（押しても何も無いのを防ぐ）
+(async function techoIconGate() {
+  try {
+    const d = await api(`/techo?persona=${encodeURIComponent(curProj())}&limit=1`);
+    if (!d || !d.stats || !d.stats.enabled) btnTecho.style.display = 'none';
+  } catch (e) { btnTecho.style.display = 'none'; }
+})();
+
+document.getElementById('btn-memory').addEventListener('click', () => {
+  overlay.classList.add('open');
+  openLater(memPanel);
+  memBag = 'own';                       // 開くときは、いつも「このプロジェクト」から
+  [...memBags.children].forEach(b => b.classList.toggle('active', b.dataset.bag === 'own'));
+  loadMemories();
+});
+document.getElementById('btn-close-memory').addEventListener('click', closeAll);
+document.getElementById('btn-add-memory').addEventListener('click', async () => {
+  const ask = (memBag === 'shared')
+    ? 'みんな共通の袋に、覚えておいてほしいことを短い一文で'
+    : '覚えておいてほしいことを、短い一文で';
+  const text = window.prompt(ask);
+  if (!text || !text.trim()) return;
+  await api(`/memories?persona=${encodeURIComponent(memBagId())}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: text.trim() }),
+  });
+  loadMemories();
+});
+
+const photosPanel = document.getElementById('photos-panel');
+const photosList = document.getElementById('photos-list');
+
+function formatPhotoDate(date) {
+  const parts = String(date).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return parts ? `${Number(parts[2])}月${Number(parts[3])}日` : date;
+}
+
+async function loadPhotos() {
+  const data = await api('/photos') || { days: [], count: 0 };
+  const count = data.count || 0;
+
+  // 0枚のときは括弧を出さない（シール帳のタブと同じ）
+  document.getElementById('photos-panel-count').textContent = count ? `（${count}）` : '';
+  document.getElementById('photos-note').textContent =
+    `アシスタントに送った写真が、日づけごとに残ります。いま ${count}枚。`;
+  photosList.innerHTML = '';
+
+  if (!count) {
+    const empty = document.createElement('div');
+    empty.className = 'photo-empty';
+    empty.textContent = 'まだ写真はないよ。アシスタントに送った写真が、ここに残るからね';
+    photosList.appendChild(empty);
+    return;
+  }
+
+  // 日は新しい順、同じ日の中は送った順（サーバー側で並べてある）
+  for (const day of (data.days || [])) {
+    const box = document.createElement('div');
+    box.className = 'photo-day';
+
+    const head = document.createElement('div');
+    head.className = 'photo-date';
+    head.textContent = `${formatPhotoDate(day.date)}　${(day.ids || []).length}枚`;
+    box.appendChild(head);
+
+    const grid = document.createElement('div');
+    grid.className = 'photo-grid';
+    for (const id of (day.ids || [])) {
+      const img = document.createElement('img');
+      img.className = 'photo-thumb';
+      img.alt = `${day.date} に送った写真`;
+      img.loading = 'lazy';        // 写真の面を開くまで、実物は落ちてこない
+      const full = `/photo/${encodeURIComponent(id)}`;
+      img.src = full + '?thumb=1';
+      img.setAttribute('role', 'button');
+      img.setAttribute('aria-label', '写真を大きく見る');
+      // 会話のときと同じ覆いで開く（2026-08-18 に作ったものをそのまま使う）
+      img.addEventListener('click', () => openPhotoViewer(img.src, full));
+      grid.appendChild(img);
+    }
+    box.appendChild(grid);
+    photosList.appendChild(box);
+  }
+}
+
+document.getElementById('btn-photos').addEventListener('click', () => {
+  overlay.classList.add('open');
+  openLater(photosPanel);
+  loadPhotos();
+});
+document.getElementById('btn-close-photos').addEventListener('click', closeAll);
+
+/* ══════════════════════════════════════════════════════════════
+   声かけ（アシスタントから話しかける＝5時間枠の始動）
+   ══════════════════════════════════════════════════════════════ */
+
+const proToggle = document.getElementById('proactive-toggle');
+const proHour   = document.getElementById('proactive-hour');
+const proMin    = document.getElementById('proactive-minute');
+const proNote   = document.getElementById('proactive-note');
+const proRow    = document.getElementById('proactive-time-row');
+
+for (let h = 0; h < 24; h++) {
+  const o = document.createElement('option');
+  o.value = h; o.textContent = `${h}時`;
+  proHour.appendChild(o);
+}
+for (let m = 0; m < 60; m += 10) {
+  const o = document.createElement('option');
+  o.value = m; o.textContent = `${String(m).padStart(2, '0')}分`;
+  proMin.appendChild(o);
+}
+
+function paintProactive(d) {
+  proToggle.checked = !!d.enabled;
+  proHour.value = d.hour;
+  proMin.value = d.minute;
+  proRow.style.display = d.enabled ? '' : 'none';
+  proNote.innerHTML = d.enabled
+    ? `毎日 <strong>${d.hour}時${String(d.minute).padStart(2, '0')}分</strong>に1回だけ話しかけます。`
+      + `<strong>5時間の枠がここから始まります</strong>。`
+      + (d.notify_ready ? '' : '（通知先が未設定なので、スレッドに残るだけです）')
+    : '決めた時こくに1回だけ話しかけます。<strong>5時間の枠がここから始まります</strong>。';
+}
+
+async function loadProactive() {
+  const d = await api('/proactive');
+  if (d) paintProactive(d);
+}
+
+async function saveProactive() {
+  const d = await api('/proactive', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      enabled: proToggle.checked,
+      hour: Number(proHour.value),
+      minute: Number(proMin.value),
+    }),
+  });
+  if (d) paintProactive({ ...d, notify_ready: proNote.textContent.includes('通知先') ? false : true });
+}
+[proToggle, proHour, proMin].forEach(el => el.addEventListener('change', saveProactive));
+
+document.getElementById('btn-test-proactive').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  btn.textContent = '声をかけています…';
+  btn.disabled = true;
+  const d = await api('/proactive/test', { method: 'POST' });
+  btn.textContent = d && d.ok ? '声をかけました' : 'うまくいきませんでした';
+  btn.disabled = false;
+  if (d && d.ok) { await loadSessions(); }
+  setTimeout(() => { btn.textContent = 'いま1回ためす'; }, 2200);
+});
+
+/* シスプロの読み書き（スマホから。1は「外側」だけ、2は全部） */
+async function loadSysPrompt() {
+  const d = await api(`/system-prompt?persona=${personaSelect.value}`);
+  if (d) sysUserBox.value = d.content || '';
+}
+document.getElementById('btn-save-sys').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-save-sys');
+  const d = await api('/system-prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ persona: personaSelect.value, content: sysUserBox.value }),
+  });
+  btn.textContent = d ? '保存しました' : 'サーバーに繋がっていません';
+  setTimeout(() => { btn.textContent = '保存する'; }, 1600);
+});
+personaSelect.addEventListener('change', () => { loadSysPrompt(); loadMemories(); });
+
+/* ── プロジェクトの手入れ（作る・名前を変える・消す・おぼえるかどうか）── */
+document.getElementById('btn-proj-memory').addEventListener('click', async () => {
+  const p = projOf(curProj()) || {};
+  const d = await api(`/projects/${curProj()}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ memory: !p.memory }),
+  });
+  if (d) { await loadProjects(curProj()); loadMemories(); }
+});
+
+document.getElementById('btn-proj-new').addEventListener('click', async () => {
+  const name = window.prompt('新しいプロジェクトの名前');
+  if (!name || !name.trim()) return;
+  const d = await api('/projects', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name.trim(), core: false, memory: true }),
+  });
+  if (!d || !d.id) return;
+  await loadProjects(d.id);
+  loadSysPrompt(); loadMemories(); savePref();
+});
+
+document.getElementById('btn-proj-rename').addEventListener('click', async () => {
+  const now = projName(curProj());
+  const name = window.prompt('名前を変える', now);
+  if (!name || !name.trim() || name.trim() === now) return;
+  await api(`/projects/${curProj()}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name.trim() }),
+  });
+  await loadProjects(curProj());
+  await loadSessions();          // スレッド一覧に出ている名前も変わる
+});
+
+// 消すのは戻せないので、ここだけ確認を出す（UIの手引き4章）
+document.getElementById('btn-proj-del').addEventListener('click', async () => {
+  const id = curProj();
+  if (PROJ_LOCKED.includes(String(id))) return;
+  if (!window.confirm(
+    `「${projName(id)}」を消しますか？\n\nシスプロも消えます。おぼえていることは残ります。`)) return;
+  const d = await api(`/projects/${id}`, { method: 'DELETE' });
+  if (!d || !d.ok) return;
+  await loadProjects('1');
+  loadSysPrompt(); loadMemories(); savePref();
+  await loadSessions();
+});
+
+/* 起動：サーバーが居れば実データに差し替える。居なければダミーのまま見える */
+(async function boot() {
+  await loadProjects(PREF.persona || personaSelect.value);
+  const okList = await loadSessions();
+  if (!okList) return;
+  if (threads.length) await openThread(threads[0].id);
+  else await newThread();
+  // アプリごと閉じていた間に書き上がっているかもしれない。まだ書いている最中なら
+  // 札を出して待ち、書き終わったら読み直す（2026-09-02）。
+  const st = await api(`/chat/status?session_id=${encodeURIComponent(currentThreadId)}`);
+  if (st && st.running) { awaitingReply = true; catchUp({ showWait: true }); }
+  loadSysPrompt();
+  loadMemories();          // 設定シートの件数表示のため、起動時に1回読む
+  loadProactive();
+})();
+
+</script>
+</body>
+</html>

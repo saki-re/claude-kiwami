@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pydantic
+python-dotenv
+anyio
+httpx
+Pillow
+claude-agent-sdk
+# 手帳の検索（無くても動きます。手帳の検索だけが使えなくなります）
+sentence-transformers
+chromadb
+# PDF を読む（無くても動きます。PDF のページ数を数えられないだけ）
+pypdf
